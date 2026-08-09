@@ -20,6 +20,7 @@ export default function Home() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [voiceError, setVoiceError] = useState<string | null>(null);
+  const processingRef = useRef(false);
 
   const { stream, permissionStatus, micError, startMicrophone, stopMicrophone } = useMicrophone();
   const { audioLevel, rmsValue, contextState, trackState } = useAudioAnalyser(stream, !!stream);
@@ -60,12 +61,53 @@ export default function Home() {
       if (ttsRef.current && fullText) {
         ttsRef.current.speak(fullText, { speed: settings.speechSpeed }).then(() => {
           handleTransition(AssistantEvent.SPEECH_COMPLETE);
+          processingRef.current = false;
         });
       } else {
         handleTransition(AssistantEvent.SPEECH_COMPLETE);
+        processingRef.current = false;
       }
+    },
+    onError: (err) => {
+      setVoiceError(err.message || "Sorry, I couldn't connect to Partner's AI service.");
+      handleTransition(AssistantEvent.AI_FAILURE); // PROCESSING -> ERROR
+      setTimeout(() => {
+        handleTransition(AssistantEvent.ERROR_RECOVER); // ERROR -> READY
+      }, 3000);
+      processingRef.current = false;
     }
   });
+
+  const processCommand = useCallback((commandText: string) => {
+    const text = commandText.trim();
+    if (!text) return;
+
+    if (processingRef.current) return;
+    processingRef.current = true;
+
+    console.debug('[Partner] Final transcript:\n', text);
+    console.debug('[Partner] Processing command:\n', text);
+
+    handleTransition(AssistantEvent.SPEECH_RECOGNIZED); // LISTENING -> PROCESSING
+
+    if (text.toLowerCase().includes('play music')) {
+       const msg = "I can process that command, but music playback control isn't connected yet.";
+       if (ttsRef.current) {
+         handleTransition(AssistantEvent.AI_RESPONSE_READY); // -> SPEAKING
+         ttsRef.current.speak(msg, { speed: settings.speechSpeed }).then(() => {
+           handleTransition(AssistantEvent.SPEECH_COMPLETE); // -> READY
+           processingRef.current = false;
+         });
+       } else {
+         handleTransition(AssistantEvent.SPEECH_COMPLETE);
+         processingRef.current = false;
+       }
+       return;
+    }
+
+    console.debug('[Partner] Sending request to Gemini...');
+    generateResponse(text);
+  }, [handleTransition, generateResponse, settings.speechSpeed]);
 
   const {
     startWakeListening,
@@ -87,8 +129,7 @@ export default function Home() {
       }
     },
     onCommandRecognized: (text: string) => {
-      handleTransition(AssistantEvent.SPEECH_RECOGNIZED);
-      generateResponse(text);
+      processCommand(text);
     },
     onSilenceTimeout: () => {
       handleTransition(AssistantEvent.SILENCE_TIMEOUT);
@@ -231,7 +272,7 @@ export default function Home() {
             <span className="user-text">
               {finalTranscript} <span style={{ opacity: 0.7 }}>{interimTranscript}</span>
             </span>
-            {state === AssistantState.PROCESSING && <div className="ai-text mt-2">Thinking...</div>}
+            {state === AssistantState.PROCESSING && <div className="ai-text mt-2">Processing...</div>}
             {state === AssistantState.SPEAKING && messages.length > 0 && (
               <div className="ai-text mt-2">{messages[messages.length - 1].content}</div>
             )}

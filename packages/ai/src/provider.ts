@@ -18,4 +18,12 @@ export interface AIProvider {
     prompt: string,
     callbacks: StreamCallbacks
   ): Promise<void>;
+
+  /**
+   * Get a simple complete string response from the AI provider
+   */
+  generateResponse(
+    history: ChatMessage[],
+    prompt: string
+  ): Promise<string>;
 }

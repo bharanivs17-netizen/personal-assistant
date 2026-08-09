@@ -1,10 +1,10 @@
-import { GoogleGenerativeAI, ChatSession, GenerativeModel } from '@google/generative-ai';
+import { GoogleGenAI } from '@google/genai';
 import { AIProvider, StreamCallbacks } from './provider';
 import { ChatMessage } from '@partner/shared';
 
 export class GeminiProvider implements AIProvider {
-  private genAI: GoogleGenerativeAI;
-  private model: GenerativeModel;
+  private ai: GoogleGenAI;
+  private modelName: string;
   
   private systemPrompt = `You are Partner, a highly advanced, 24/7 personal voice assistant. 
 Your personality is calm, friendly, natural, intelligent, concise, and confident.
@@ -15,15 +15,12 @@ Follow these strict rules:
 3. Use natural conversational language.
 4. If you don't know something, confidently state that you don't know.`;
 
-  constructor(apiKey: string, modelName: string = 'gemini-3.6-flash') {
+  constructor(apiKey: string, modelName: string = 'gemini-1.5-flash') {
     if (!apiKey) {
       throw new Error("Google Gemini API key is missing");
     }
-    this.genAI = new GoogleGenerativeAI(apiKey);
-    this.model = this.genAI.getGenerativeModel({
-      model: modelName,
-      systemInstruction: this.systemPrompt,
-    });
+    this.ai = new GoogleGenAI({ apiKey: apiKey });
+    this.modelName = modelName;
   }
 
   async streamChat(
@@ -32,22 +29,21 @@ Follow these strict rules:
     callbacks: StreamCallbacks
   ): Promise<void> {
     try {
-      // Convert our ChatMessage format to Gemini's format
       const formattedHistory = history.map(msg => ({
         role: msg.role === 'user' ? 'user' : 'model',
         parts: [{ text: msg.content }],
       }));
 
-      const chat: ChatSession = this.model.startChat({
-        history: formattedHistory,
+      // In modern SDK we typically use generateContentStream
+      const responseStream = await this.ai.models.generateContentStream({
+        model: this.modelName,
+        contents: [...formattedHistory, { role: 'user', parts: [{ text: prompt }] }],
+        config: { systemInstruction: this.systemPrompt }
       });
 
-      const result = await chat.sendMessageStream(prompt);
-
-      for await (const chunk of result.stream) {
-        const chunkText = chunk.text();
-        if (chunkText) {
-          callbacks.onContent(chunkText);
+      for await (const chunk of responseStream) {
+        if (chunk.text) {
+          callbacks.onContent(chunk.text);
         }
       }
 
@@ -55,6 +51,26 @@ Follow these strict rules:
     } catch (error) {
       console.error('Gemini Provider Error:', error);
       callbacks.onError(error instanceof Error ? error : new Error(String(error)));
+    }
+  }
+
+  async generateResponse(history: ChatMessage[], prompt: string): Promise<string> {
+    try {
+      const formattedHistory = history.map(msg => ({
+        role: msg.role === 'user' ? 'user' : 'model',
+        parts: [{ text: msg.content }],
+      }));
+
+      const response = await this.ai.models.generateContent({
+        model: this.modelName,
+        contents: [...formattedHistory, { role: 'user', parts: [{ text: prompt }] }],
+        config: { systemInstruction: this.systemPrompt }
+      });
+
+      return response.text || '';
+    } catch (error) {
+      console.error('Gemini generateResponse Error:', error);
+      throw error;
     }
   }
 }

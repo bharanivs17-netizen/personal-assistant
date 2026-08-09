@@ -28,10 +28,41 @@ app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok', environment: process.env.NODE_ENV });
 });
 
+async function validateGeminiModel() {
+  const apiKey = process.env.GOOGLE_API_KEY;
+  const configuredModel = process.env.GOOGLE_MODEL;
+
+  if (apiKey && configuredModel) {
+    try {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
+      if (!response.ok) {
+        console.error('⚠️ Could not validate Gemini model: API returned', response.status);
+        return;
+      }
+      const data = await response.json();
+      const models = data.models || [];
+      const modelExists = models.find((m: any) => m.name === `models/${configuredModel}` || m.name === configuredModel);
+      
+      if (!modelExists) {
+        console.error(`\n❌ Gemini model "${configuredModel}" is unavailable.`);
+        console.error(`   Check GOOGLE_MODEL and the available models for this API key.\n`);
+      } else if (!modelExists.supportedGenerationMethods?.includes('generateContent')) {
+        console.error(`\n❌ Gemini model "${configuredModel}" does not support generateContent.\n`);
+      } else {
+        console.log(`✅ Gemini model validated: ${configuredModel}`);
+      }
+    } catch (err) {
+      console.error('⚠️ Error validating Gemini model:', err);
+    }
+  }
+}
+
 // Start server
-app.listen(PORT, () => {
+app.listen(Number(PORT), '0.0.0.0', () => {
   console.log(`Partner backend listening on port ${PORT}`);
   if (!process.env.GOOGLE_API_KEY) {
     console.warn('⚠️ WARNING: GOOGLE_API_KEY is not set. Chat will not work.');
+  } else {
+    validateGeminiModel();
   }
 });

@@ -207,6 +207,8 @@ export function useSpeechRecognition({
         if (final) {
           transcriptRef.current.final += final;
           setFinalTranscriptState(transcriptRef.current.final);
+          // Immediately process final transcript without waiting for silence
+          commitCommandRef.current();
         }
       }
     };

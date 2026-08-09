@@ -10,7 +10,7 @@
     "test": "echo \"No tests yet\""
   },
   "dependencies": {
-    "@google/generative-ai": "^0.11.1",
+    "@google/genai": "^2.16.0",
     "@partner/shared": "*"
   },
   "devDependencies": {

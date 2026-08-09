@@ -59,6 +59,10 @@ export interface PartnerSettings {
   speechVolume: number;
   /** Whether notifications are enabled */
   notificationsEnabled: boolean;
+  /** Speech recognition language */
+  language: 'auto' | 'en-IN' | 'ta-IN';
+  /** TTS Response language */
+  responseLanguage: 'auto' | 'english' | 'tamil';
 }
 
 /** Default settings */
@@ -68,6 +72,8 @@ export const DEFAULT_SETTINGS: PartnerSettings = {
   speechSpeed: 1.0,
   speechVolume: 1.0,
   notificationsEnabled: true,
+  language: 'auto',
+  responseLanguage: 'auto',
 };
 
 /** A single message in a conversation */

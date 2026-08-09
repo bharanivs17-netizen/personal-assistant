@@ -18,7 +18,7 @@ function getStatusConfig(state: AssistantState): { text: string; className: stri
     case AssistantState.LISTENING:
       return { text: 'Listening...', className: 'active' };
     case AssistantState.PROCESSING:
-      return { text: 'Thinking...', className: 'active' };
+      return { text: 'Processing...', className: 'active' };
     case AssistantState.SPEAKING:
       return { text: 'Speaking...', className: 'active' };
     case AssistantState.ERROR:

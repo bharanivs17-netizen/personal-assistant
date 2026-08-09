@@ -37,101 +37,90 @@ export function useChat({ onChunk, onComplete, onError }: UseChatProps = {}) {
     setMessages(prev => [...prev, aiMsg]);
     
     try {
-      const response = await fetch('http://localhost:3001/api/chat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          message: text,
-          // Exclude the newly added placeholder AI message when sending history
-          history: messages,
-        }),
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Server error: ${response.status}`);
-      }
-      
-      if (!response.body) {
-        throw new Error('ReadableStream not supported by the browser.');
-      }
-      
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder('utf-8');
-      let done = false;
-      let fullResponseText = '';
-      
-      while (!done) {
-        const { value, done: readerDone } = await reader.read();
-        done = readerDone;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
+
+      try {
+        const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+
+        const response = await fetch(`${API_URL}/api/chat`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            message: text,
+            // Exclude the newly added placeholder AI message when sending history
+            history: messages,
+          }),
+          signal: controller.signal
+        });
         
-        if (value) {
-          const chunk = decoder.decode(value, { stream: true });
-          
-          // SSE data comes in as lines of "data: {...}\n\n"
-          const lines = chunk.split('\n\n');
-          
-          for (const line of lines) {
-            if (line.startsWith('data: ')) {
-              const dataStr = line.replace('data: ', '');
-              
-              if (dataStr === '[DONE]') {
-                done = true;
-                break;
-              }
-              
-              try {
-                const data = JSON.parse(dataStr);
-                
-                if (data.error) {
-                  throw new Error(data.error);
-                }
-                
-                if (data.text) {
-                  fullResponseText += data.text;
-                  
-                  // Update the AI message content
-                  setMessages(prev => 
-                    prev.map(msg => 
-                      msg.id === aiMsgId 
-                        ? { ...msg, content: fullResponseText } 
-                        : msg
-                    )
-                  );
-                  
-                  if (onChunk) {
-                    onChunk(data.text);
-                  }
-                }
-              } catch (e) {
-                // Not JSON, ignore or log
-              }
+        if (!response.ok) {
+          let errMsg = `Server error: ${response.status}`;
+          try {
+            const errData = await response.json();
+            if (response.status === 429 && errData.error?.code === 'QUOTA_EXCEEDED') {
+              errMsg = 'Partner is temporarily unavailable because the Gemini API quota has been reached. Please try again later.';
+            } else if (errData.error?.message) {
+              errMsg = `API ERROR HTTP ${response.status}: ${errData.error.message}`;
+            } else if (errData.error) {
+              errMsg = `API ERROR HTTP ${response.status}: ${errData.error}`;
             }
-          }
+          } catch(e) {}
+          throw new Error(errMsg);
         }
+        
+        const data = await response.json();
+        const responseText = data.text;
+
+        if (!responseText || !responseText.trim()) {
+          throw new Error("Empty Gemini response");
+        }
+
+        // Update the AI message content
+        setMessages(prev => 
+          prev.map(msg => 
+            msg.id === aiMsgId 
+              ? { ...msg, content: responseText } 
+              : msg
+          )
+        );
+
+        if (onChunk) onChunk(responseText);
+        setIsGenerating(false);
+
+        if (onComplete) {
+          onComplete(responseText);
+        }
+      } finally {
+        clearTimeout(timeoutId);
       }
       
+    } catch (err: any) {
+      console.error('[Partner] Chat request failed:', err);
       setIsGenerating(false);
-      if (onComplete) {
-        onComplete(fullResponseText);
-      }
       
-    } catch (err) {
-      console.error('Chat generation error:', err);
-      setIsGenerating(false);
+      let friendlyError = err instanceof Error ? err : new Error(String(err));
+      
+      // Handle network 'Failed to fetch' errors specifically
+      if (err instanceof TypeError && err.message === 'Failed to fetch') {
+        friendlyError = new Error('Unable to connect to the Partner backend.');
+      } else if (err.name === 'AbortError') {
+        friendlyError = new Error("Partner AI service timed out.");
+      }
       
       // Update the AI message to show the error
       setMessages(prev => 
         prev.map(msg => 
           msg.id === aiMsgId 
-            ? { ...msg, content: "I'm having trouble connecting right now." } 
+            ? { ...msg, content: friendlyError.message } 
             : msg
         )
       );
       
       if (onError) {
-        onError(err instanceof Error ? err : new Error(String(err)));
+        onError(friendlyError);
       }
     }
   }, [messages, onChunk, onComplete, onError]);
