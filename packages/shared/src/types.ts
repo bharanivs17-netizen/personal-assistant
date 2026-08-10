@@ -24,6 +24,10 @@ export enum AssistantState {
   PERMISSION_REQUIRED = 'PERMISSION_REQUIRED',
   /** No network connection available */
   NO_NETWORK = 'NO_NETWORK',
+  /** Actively in a continuous conversation loop */
+  CONTINUOUS_LISTENING = 'CONTINUOUS_LISTENING',
+  /** Asking user for confirmation of a disruptive action */
+  CONFIRMING = 'CONFIRMING',
   /** User has manually stopped listening */
   STOPPED = 'STOPPED',
 }
@@ -45,6 +49,8 @@ export enum AssistantEvent {
   MIC_GRANTED = 'MIC_GRANTED',
   NETWORK_LOST = 'NETWORK_LOST',
   NETWORK_RESTORED = 'NETWORK_RESTORED',
+  CONFIRM_YES = 'CONFIRM_YES',
+  CONFIRM_NO = 'CONFIRM_NO',
 }
 
 /** Partner settings configurable by the user */
@@ -63,6 +69,16 @@ export interface PartnerSettings {
   language: 'auto' | 'en-IN' | 'ta-IN';
   /** TTS Response language */
   responseLanguage: 'auto' | 'english' | 'tamil';
+  /** New Feature Toggles */
+  voiceAssistant: boolean;
+  continuousConversation: boolean;
+  chatWithPartner: boolean;
+  offlineKnowledge: boolean;
+  geminiAI: boolean;
+  systemControls: boolean;
+  voiceResponse: boolean;
+  showTTSDebug: boolean;
+  showMicToggle: boolean;
 }
 
 /** Default settings */
@@ -74,6 +90,15 @@ export const DEFAULT_SETTINGS: PartnerSettings = {
   notificationsEnabled: true,
   language: 'auto',
   responseLanguage: 'auto',
+  voiceAssistant: true,
+  continuousConversation: true,
+  chatWithPartner: true,
+  offlineKnowledge: true,
+  geminiAI: true,
+  systemControls: true,
+  voiceResponse: true,
+  showTTSDebug: true,
+  showMicToggle: true,
 };
 
 /** A single message in a conversation */

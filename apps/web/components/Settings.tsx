@@ -50,12 +50,204 @@ export default function Settings({
         </div>
 
         <div className="settings-body">
+          {/* Partner Features */}
+          <div className="settings-group">
+            <span className="settings-group-title">Partner Features</span>
+            
+            <div className="settings-row">
+              <span className="settings-row-label">Voice Assistant</span>
+              <div
+                className={`toggle-switch ${settings.voiceAssistant ? 'on' : ''}`}
+                onClick={() => onSettingsChange({ ...settings, voiceAssistant: !settings.voiceAssistant })}
+              >
+                <div className="toggle-switch-knob" />
+              </div>
+            </div>
+
+            <div className="settings-row">
+              <span className="settings-row-label">Continuous Conversation</span>
+              <div
+                className={`toggle-switch ${settings.continuousConversation ? 'on' : ''}`}
+                onClick={() => onSettingsChange({ ...settings, continuousConversation: !settings.continuousConversation })}
+              >
+                <div className="toggle-switch-knob" />
+              </div>
+            </div>
+
+            <div className="settings-row">
+              <span className="settings-row-label">Chat with Partner</span>
+              <div
+                className={`toggle-switch ${settings.chatWithPartner ? 'on' : ''}`}
+                onClick={() => onSettingsChange({ ...settings, chatWithPartner: !settings.chatWithPartner })}
+              >
+                <div className="toggle-switch-knob" />
+              </div>
+            </div>
+
+            <div className="settings-row">
+              <span className="settings-row-label">Offline Knowledge</span>
+              <div
+                className={`toggle-switch ${settings.offlineKnowledge ? 'on' : ''}`}
+                onClick={() => onSettingsChange({ ...settings, offlineKnowledge: !settings.offlineKnowledge })}
+              >
+                <div className="toggle-switch-knob" />
+              </div>
+            </div>
+
+            <div className="settings-row">
+              <span className="settings-row-label">Gemini AI</span>
+              <div
+                className={`toggle-switch ${settings.geminiAI ? 'on' : ''}`}
+                onClick={() => onSettingsChange({ ...settings, geminiAI: !settings.geminiAI })}
+              >
+                <div className="toggle-switch-knob" />
+              </div>
+            </div>
+
+            <div className="settings-row">
+              <span className="settings-row-label">System Controls</span>
+              <div
+                className={`toggle-switch ${settings.systemControls ? 'on' : ''}`}
+                onClick={() => onSettingsChange({ ...settings, systemControls: !settings.systemControls })}
+              >
+                <div className="toggle-switch-knob" />
+              </div>
+            </div>
+
+            <div className="settings-row">
+              <span className="settings-row-label">Voice Response</span>
+              <div
+                className={`toggle-switch ${settings.voiceResponse ? 'on' : ''}`}
+                onClick={() => onSettingsChange({ ...settings, voiceResponse: !settings.voiceResponse })}
+              >
+                <div className="toggle-switch-knob" />
+              </div>
+            </div>
+
+            <div className="settings-row">
+              <span className="settings-row-label">TTS Debug Panel</span>
+              <div
+                className={`toggle-switch ${settings.showTTSDebug ? 'on' : ''}`}
+                onClick={() => onSettingsChange({ ...settings, showTTSDebug: !settings.showTTSDebug })}
+              >
+                <div className="toggle-switch-knob" />
+              </div>
+            </div>
+
+            <div className="settings-row">
+              <span className="settings-row-label">Microphone Panel</span>
+              <div
+                className={`toggle-switch ${settings.showMicToggle ? 'on' : ''}`}
+                onClick={() => onSettingsChange({ ...settings, showMicToggle: !settings.showMicToggle })}
+              >
+                <div className="toggle-switch-knob" />
+              </div>
+            </div>
+          </div>
+
+          {/* System Status */}
+          <div className="settings-group">
+            <span className="settings-group-title">System Status</span>
+            <div className="settings-row">
+              <span className="settings-row-label">Frontend</span>
+              <span className="settings-row-value accent">CONNECTED</span>
+            </div>
+            <div className="settings-row">
+              <span className="settings-row-label">Backend</span>
+              <span className="settings-row-value accent">CONNECTED</span>
+            </div>
+            <div className="settings-row">
+              <span className="settings-row-label">Gemini</span>
+              <span className="settings-row-value accent">AVAILABLE</span>
+            </div>
+            <div className="settings-row">
+              <span className="settings-row-label">Microphone</span>
+              <span className="settings-row-value">{permissionStatus === 'granted' ? 'AVAILABLE' : 'DENIED'}</span>
+            </div>
+            <div className="settings-row">
+              <span className="settings-row-label">Speech Recognition</span>
+              <span className="settings-row-value accent">AVAILABLE</span>
+            </div>
+            <div className="settings-row">
+              <span className="settings-row-label">TTS</span>
+              <span className="settings-row-value accent">AVAILABLE</span>
+            </div>
+            <div className="settings-row">
+              <span className="settings-row-label">Tamil Voice</span>
+              <span className="settings-row-value accent">AVAILABLE</span>
+            </div>
+          </div>
+
+          {/* System Controls Details */}
+          <div className="settings-group">
+            <span className="settings-group-title">System Controls (Desktop)</span>
+            
+            {/* The web app doesn't have system controls natively, we just list them here for UI accuracy */}
+            <div className="settings-row">
+              <span className="settings-row-label">Brightness</span>
+              <span className="settings-row-value accent">Available on Desktop</span>
+            </div>
+            <div className="settings-row">
+              <span className="settings-row-label">Volume</span>
+              <span className="settings-row-value accent">Available on Desktop</span>
+            </div>
+            <div className="settings-row">
+              <span className="settings-row-label">Microphone</span>
+              <span className="settings-row-value accent">Partner MIC Only</span>
+            </div>
+            <div className="settings-row">
+              <span className="settings-row-label">Lock / Sleep / Power</span>
+              <span className="settings-row-value accent">Available on Desktop</span>
+            </div>
+            <div className="settings-row">
+              <span className="settings-row-label">Applications</span>
+              <span className="settings-row-value accent">Available on Desktop</span>
+            </div>
+          </div>
+
           {/* Wake Word */}
           <div className="settings-group">
             <span className="settings-group-title">Wake Word</span>
             <div className="settings-row">
               <span className="settings-row-label">Activation phrase</span>
               <span className="settings-row-value accent">Hey Partner</span>
+            </div>
+          </div>
+
+          {/* Languages */}
+          <div className="settings-group">
+            <span className="settings-group-title">Language</span>
+            
+            <div className="settings-row">
+              <span className="settings-row-label">Speech recognition</span>
+              <select 
+                className="settings-select"
+                value={settings.language || 'auto'}
+                onChange={(e) => onSettingsChange({
+                  ...settings,
+                  language: e.target.value as 'auto' | 'en-IN' | 'ta-IN'
+                })}
+              >
+                <option value="auto">Auto Detect</option>
+                <option value="en-IN">English (India)</option>
+                <option value="ta-IN">தமிழ் (Tamil)</option>
+              </select>
+            </div>
+            
+            <div className="settings-row">
+              <span className="settings-row-label">Partner response</span>
+              <select 
+                className="settings-select"
+                value={settings.responseLanguage || 'auto'}
+                onChange={(e) => onSettingsChange({
+                  ...settings,
+                  responseLanguage: e.target.value as 'auto' | 'english' | 'tamil'
+                })}
+              >
+                <option value="auto">Auto (Match input)</option>
+                <option value="english">English always</option>
+                <option value="tamil">தமிழ் always</option>
+              </select>
             </div>
           </div>
 

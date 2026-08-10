@@ -23,7 +23,7 @@ const TRANSITIONS: Partial<
   },
 
   [AssistantState.WAKE_DETECTED]: {
-    [AssistantEvent.ACKNOWLEDGE_DONE]: AssistantState.LISTENING,
+    [AssistantEvent.ACKNOWLEDGE_DONE]: AssistantState.CONTINUOUS_LISTENING,
   },
 
   [AssistantState.LISTENING]: {
@@ -32,14 +32,26 @@ const TRANSITIONS: Partial<
     [AssistantEvent.DISABLE]: AssistantState.STOPPED,
   },
 
+  [AssistantState.CONTINUOUS_LISTENING]: {
+    [AssistantEvent.SPEECH_RECOGNIZED]: AssistantState.PROCESSING,
+    [AssistantEvent.SILENCE_TIMEOUT]: AssistantState.CONTINUOUS_LISTENING,
+    [AssistantEvent.DISABLE]: AssistantState.READY,
+  },
+
+  [AssistantState.CONFIRMING]: {
+    [AssistantEvent.CONFIRM_YES]: AssistantState.PROCESSING,
+    [AssistantEvent.CONFIRM_NO]: AssistantState.CONTINUOUS_LISTENING,
+    [AssistantEvent.DISABLE]: AssistantState.READY,
+  },
+
   [AssistantState.PROCESSING]: {
     [AssistantEvent.AI_RESPONSE_READY]: AssistantState.SPEAKING,
     [AssistantEvent.AI_FAILURE]: AssistantState.ERROR,
   },
 
   [AssistantState.SPEAKING]: {
-    [AssistantEvent.SPEECH_COMPLETE]: AssistantState.READY,
-    [AssistantEvent.BARGE_IN]: AssistantState.LISTENING,
+    [AssistantEvent.SPEECH_COMPLETE]: AssistantState.CONTINUOUS_LISTENING,
+    [AssistantEvent.BARGE_IN]: AssistantState.CONTINUOUS_LISTENING,
   },
 
   [AssistantState.ERROR]: {

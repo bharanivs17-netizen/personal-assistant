@@ -12,11 +12,14 @@ function getStatusConfig(state: AssistantState): { text: string; className: stri
     case AssistantState.OFF:
       return { text: 'Offline', className: '' };
     case AssistantState.READY:
-      return { text: 'Ready to help', className: '' };
+      return { text: 'Say Hey Partner', className: '' };
     case AssistantState.WAKE_DETECTED:
       return { text: 'Yes?', className: 'active' };
     case AssistantState.LISTENING:
+    case AssistantState.CONTINUOUS_LISTENING:
       return { text: 'Listening...', className: 'active' };
+    case AssistantState.CONFIRMING:
+      return { text: 'Waiting for confirmation...', className: 'active' };
     case AssistantState.PROCESSING:
       return { text: 'Processing...', className: 'active' };
     case AssistantState.SPEAKING:

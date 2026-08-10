@@ -3,6 +3,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import dotenv from 'dotenv';
 import chatRouter from './routes/chat';
+import ttsRouter from './routes/tts';
 
 // Load environment variables
 dotenv.config({ path: '../.env' }); // Load from root
@@ -22,6 +23,7 @@ app.use(express.json());
 
 // API Routes
 app.use('/api/chat', chatRouter);
+app.use('/api/tts', ttsRouter);
 
 // Health check
 app.get('/health', (req, res) => {

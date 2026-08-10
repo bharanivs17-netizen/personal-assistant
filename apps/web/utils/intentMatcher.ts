@@ -1,4 +1,5 @@
 import { OFFLINE_KNOWLEDGE, OfflineIntent } from '../data/offlineKnowledge';
+import { SYSTEM_TOOLS, ToolIntent } from '../data/systemTools';
 
 /**
  * Normalizes speech for fuzzy matching
@@ -53,6 +54,9 @@ export function normalizeSpeech(text: string): string {
 export type MatchResult = {
   intent: string;
   responseParams?: any;
+  isTool?: boolean;
+  toolName?: string;
+  toolArgs?: any;
 } | null;
 
 /**
@@ -61,7 +65,26 @@ export type MatchResult = {
 export function matchIntent(transcript: string): MatchResult {
   const normalized = normalizeSpeech(transcript);
   
-  // 1. Exact Match
+  // 1. Exact Match - Tools
+  for (const tool of SYSTEM_TOOLS) {
+    const allPhrases = [
+      ...tool.phrases.en,
+      ...tool.phrases.ta,
+      ...tool.phrases.tanglish,
+      ...tool.phrases.mixed
+    ].map(p => normalizeSpeech(p));
+
+    if (allPhrases.includes(normalized)) {
+      let args: any = {};
+      if (tool.intent === 'OPEN_CALCULATOR') args = { appName: 'calculator' };
+      if (tool.intent === 'OPEN_NOTEPAD') args = { appName: 'notepad' };
+      if (tool.intent === 'OPEN_BROWSER') args = { appName: 'browser' };
+      
+      return { intent: tool.intent, isTool: true, toolName: tool.toolName, toolArgs: args };
+    }
+  }
+
+  // 1.5. Exact Match - Offline Knowledge
   for (const knowledge of OFFLINE_KNOWLEDGE) {
     const allPhrases = [
       ...knowledge.phrases.en,
@@ -78,15 +101,13 @@ export function matchIntent(transcript: string): MatchResult {
   // 2. Inclusion / Keyword Match
   // Simple heuristic: If all words of a phrase exist in the transcript in any order, it's a match.
   // We prioritize longer phrases.
-  let bestMatch: OfflineIntent | null = null;
+  let bestToolMatch: ToolIntent | null = null;
+  let bestKnowledgeMatch: OfflineIntent | null = null;
   let maxMatchedWords = 0;
 
-  for (const knowledge of OFFLINE_KNOWLEDGE) {
+  for (const tool of SYSTEM_TOOLS) {
     const allPhrases = [
-      ...knowledge.phrases.en,
-      ...knowledge.phrases.ta,
-      ...knowledge.phrases.tanglish,
-      ...knowledge.phrases.mixed
+      ...tool.phrases.en, ...tool.phrases.ta, ...tool.phrases.tanglish, ...tool.phrases.mixed
     ].map(p => normalizeSpeech(p));
 
     for (const phrase of allPhrases) {
@@ -96,18 +117,47 @@ export function matchIntent(transcript: string): MatchResult {
       const allWordsPresent = phraseWords.every(pw => transcriptWords.includes(pw));
       if (allWordsPresent && phraseWords.length > maxMatchedWords) {
         maxMatchedWords = phraseWords.length;
-        bestMatch = knowledge;
+        bestToolMatch = tool;
+        bestKnowledgeMatch = null;
       }
     }
   }
 
-  if (bestMatch && maxMatchedWords >= 2) {
-      // Return only if at least 2 words matched to avoid single common word false positives
-      return { intent: bestMatch.intent };
-  } else if (bestMatch && maxMatchedWords === 1) {
-      // Some intents are 1 word, like "hello", "thanks", "stop"
-      if (['GREETING', 'THANKS', 'GOODBYE', 'STOP_LISTENING'].includes(bestMatch.intent)) {
-          return { intent: bestMatch.intent };
+  for (const knowledge of OFFLINE_KNOWLEDGE) {
+    const allPhrases = [
+      ...knowledge.phrases.en, ...knowledge.phrases.ta, ...knowledge.phrases.tanglish, ...knowledge.phrases.mixed
+    ].map(p => normalizeSpeech(p));
+
+    for (const phrase of allPhrases) {
+      const phraseWords = phrase.split(' ');
+      const transcriptWords = normalized.split(' ');
+      
+      const allWordsPresent = phraseWords.every(pw => transcriptWords.includes(pw));
+      if (allWordsPresent && phraseWords.length > maxMatchedWords) {
+        maxMatchedWords = phraseWords.length;
+        bestKnowledgeMatch = knowledge;
+        bestToolMatch = null;
+      }
+    }
+  }
+
+  if (bestToolMatch && maxMatchedWords >= 2) {
+      let args: any = {};
+      if (bestToolMatch.intent === 'OPEN_CALCULATOR') args = { appName: 'calculator' };
+      if (bestToolMatch.intent === 'OPEN_NOTEPAD') args = { appName: 'notepad' };
+      if (bestToolMatch.intent === 'OPEN_BROWSER') args = { appName: 'browser' };
+      return { intent: bestToolMatch.intent, isTool: true, toolName: bestToolMatch.toolName, toolArgs: args };
+  } else if (bestToolMatch && maxMatchedWords === 1) {
+      if (['VOLUME_MUTE', 'VOLUME_UNMUTE'].includes(bestToolMatch.intent)) {
+          return { intent: bestToolMatch.intent, isTool: true, toolName: bestToolMatch.toolName };
+      }
+  }
+
+  if (bestKnowledgeMatch && maxMatchedWords >= 2) {
+      return { intent: bestKnowledgeMatch.intent };
+  } else if (bestKnowledgeMatch && maxMatchedWords === 1) {
+      if (['GREETING', 'THANKS', 'GOODBYE', 'STOP_LISTENING'].includes(bestKnowledgeMatch.intent)) {
+          return { intent: bestKnowledgeMatch.intent };
       }
   }
   

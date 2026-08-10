@@ -1,0 +1,20 @@
+{
+  "name": "desktop",
+  "version": "1.0.0",
+  "private": true,
+  "main": "dist/main/index.js",
+  "scripts": {
+    "dev": "tsc && electron .",
+    "build": "tsc"
+  },
+  "devDependencies": {
+    "electron": "^31.3.0",
+    "typescript": "^5.5.0",
+    "@types/node": "^20.14.0"
+  },
+  "dependencies": {
+    "@partner/shared": "workspace:*",
+    "@partner/tools": "workspace:*"
+  }
+}
+

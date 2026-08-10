@@ -1,7 +1,20 @@
+export interface TTSDebugInfo {
+  language: string;
+  voiceName: string;
+  status: 'READY' | 'SPEAKING' | 'ERROR';
+  error: string;
+  hasTamilVoice: boolean;
+}
+
 export interface TTSOptions {
   voice?: string;
   speed?: number;
   volume?: number;
+  lang?: 'english' | 'tamil' | 'auto';
+  onStart?: () => void;
+  onEnd?: () => void;
+  onError?: (error: unknown) => void;
+  onDebug?: (info: TTSDebugInfo) => void;
 }
 
 export interface TTSProvider {

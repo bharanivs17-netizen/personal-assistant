@@ -16,6 +16,7 @@ interface UseSpeechRecognitionProps {
   onSilenceTimeout: () => void;
   onError: (errorMsg: string) => void;
   silenceTimeoutMs?: number;
+  language?: string;
 }
 
 export function useSpeechRecognition({
@@ -23,7 +24,8 @@ export function useSpeechRecognition({
   onCommandRecognized,
   onSilenceTimeout,
   onError,
-  silenceTimeoutMs = 6000
+  silenceTimeoutMs = 6000,
+  language = 'auto'
 }: UseSpeechRecognitionProps) {
   const [isSupported, setIsSupported] = useState(true);
   const [interimTranscriptState, setInterimTranscriptState] = useState('');
@@ -33,6 +35,12 @@ export function useSpeechRecognition({
   const recognitionRef = useRef<any>(null);
   const modeRef = useRef<RecognitionMode>('OFF');
   const runningRef = useRef(false);
+  
+  // Continuous conversation refs
+  const conversationModeRef = useRef(false);
+  const isSpeakingRef = useRef(false);
+  const isRecognitionRunningRef = useRef(false);
+  const stopRequestedRef = useRef(false);
   
   const retryCountRef = useRef(0);
   const restartTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -73,6 +81,67 @@ export function useSpeechRecognition({
     }
   }, [clearSilenceTimeout, silenceTimeoutMs]);
 
+  const startListeningSafely = useCallback(() => {
+    if (!conversationModeRef.current) return;
+    if (isSpeakingRef.current) return;
+    if (isRecognitionRunningRef.current) return;
+    if (stopRequestedRef.current) return;
+    if (!recognitionRef.current) return;
+
+    // Dynamically set language before starting
+    recognitionRef.current.lang = language === 'ta-IN' ? 'ta-IN' : 'en-IN';
+
+    try {
+      recognitionRef.current.start();
+    } catch (error: any) {
+      if (error.name !== "InvalidStateError") {
+        console.error(error);
+      }
+    }
+  }, [language]);
+
+  const scheduleSafeRestart = useCallback(() => {
+    if (restartTimeoutRef.current) {
+      clearTimeout(restartTimeoutRef.current);
+    }
+
+    restartTimeoutRef.current = setTimeout(() => {
+      if (
+        conversationModeRef.current &&
+        !isSpeakingRef.current &&
+        !isRecognitionRunningRef.current &&
+        !stopRequestedRef.current
+      ) {
+        startListeningSafely();
+      }
+    }, 300);
+  }, [startListeningSafely]);
+
+  // Keep existing wake word start logic
+  const handleRecognitionStart = useCallback((mode: RecognitionMode) => {
+    if (!recognitionRef.current || mode === 'OFF') return;
+    
+    // Prevent duplicate start
+    if (isRecognitionRunningRef.current || runningRef.current) {
+      return;
+    }
+    
+    if (recognitionRef.current) {
+      recognitionRef.current.lang = language === 'ta-IN' ? 'ta-IN' : 'en-IN';
+    }
+    
+    try {
+      runningRef.current = true;
+      recognitionRef.current.start();
+    } catch (err: any) {
+      runningRef.current = false;
+      console.debug('[Partner Voice] Failed to start recognition:', err);
+      if (err.name === 'InvalidStateError') {
+         runningRef.current = true; // it is already running
+      }
+    }
+  }, [language]);
+
   const scheduleRestart = useCallback((delayMs: number) => {
     if (restartTimeoutRef.current) {
       clearTimeout(restartTimeoutRef.current);
@@ -80,24 +149,7 @@ export function useSpeechRecognition({
     restartTimeoutRef.current = setTimeout(() => {
       handleRecognitionStart(modeRef.current);
     }, delayMs);
-  }, []);
-
-  const handleRecognitionStart = useCallback((mode: RecognitionMode) => {
-    if (!recognitionRef.current || mode === 'OFF') return;
-    
-    // Prevent duplicate start
-    if (runningRef.current) {
-      return;
-    }
-    
-    try {
-      runningRef.current = true;
-      recognitionRef.current.start();
-    } catch (err) {
-      runningRef.current = false;
-      console.debug('[Partner Voice] Failed to start recognition:', err);
-    }
-  }, []);
+  }, [handleRecognitionStart]);
 
   const stopRecognition = useCallback(() => {
     modeRef.current = 'OFF';
@@ -107,19 +159,18 @@ export function useSpeechRecognition({
       restartTimeoutRef.current = null;
     }
     
-    if (recognitionRef.current && runningRef.current) {
+    if (recognitionRef.current && (runningRef.current || isRecognitionRunningRef.current)) {
       try {
         recognitionRef.current.stop();
       } catch (err) {
         // ignore
       }
     }
-    // runningRef will be set to false in onend
   }, [clearSilenceTimeout]);
 
   const changeMode = useCallback((newMode: RecognitionMode) => {
     // If we're already in this mode and running, just reset silence
-    if (runningRef.current && modeRef.current === newMode) {
+    if ((runningRef.current || isRecognitionRunningRef.current) && modeRef.current === newMode) {
       if (newMode === 'COMMAND') resetSilenceTimeout();
       return;
     }
@@ -145,16 +196,20 @@ export function useSpeechRecognition({
     if (newMode === 'OFF') {
       stopRecognition();
     } else {
-      if (runningRef.current) {
+      if (runningRef.current || isRecognitionRunningRef.current) {
         // Stop the current one, the 'onend' handler will pick up the new mode and restart
         try {
           recognitionRef.current.stop();
         } catch (e) {}
       } else {
-        handleRecognitionStart(newMode);
+        if (newMode === 'COMMAND' && conversationModeRef.current) {
+          startListeningSafely();
+        } else {
+          handleRecognitionStart(newMode);
+        }
       }
     }
-  }, [resetSilenceTimeout, clearSilenceTimeout, stopRecognition, handleRecognitionStart]);
+  }, [resetSilenceTimeout, clearSilenceTimeout, stopRecognition, handleRecognitionStart, startListeningSafely]);
 
   // Initialize SpeechRecognition once
   useEffect(() => {
@@ -165,11 +220,12 @@ export function useSpeechRecognition({
     }
 
     const recognition = new SpeechRecognition();
-    recognition.continuous = true;
+    // PER USER REQUIREMENT: DO NOT USE continuous=true
+    recognition.continuous = false;
     recognition.interimResults = true;
-    recognition.lang = 'en-US';
 
     recognition.onstart = () => {
+      isRecognitionRunningRef.current = true;
       runningRef.current = true;
       if (modeRef.current === 'COMMAND') {
         resetSilenceTimeout();
@@ -177,6 +233,11 @@ export function useSpeechRecognition({
     };
 
     recognition.onresult = (event: any) => {
+      // PREVENT SELF-HEARING
+      if (isSpeakingRef.current) {
+        return;
+      }
+
       if (modeRef.current === 'COMMAND') {
         resetSilenceTimeout();
       }
@@ -196,7 +257,7 @@ export function useSpeechRecognition({
         // Evaluate wake word
         const fullTranscript = final + interim;
         const normalized = fullTranscript.toLowerCase().trim().replace(/[.,!?;:]/g, '');
-        if (normalized.includes('hey partner')) {
+        if (normalized.includes('hey partner') || normalized.includes('hello partner') || normalized.includes('hi partner') || normalized === 'partner') {
           // Immediately stop and trigger callback
           changeMode('OFF');
           callbacksRef.current.onWakeWordDetected();
@@ -232,10 +293,11 @@ export function useSpeechRecognition({
           retryCountRef.current++;
           const delay = retryCountRef.current === 1 ? 1000 : (retryCountRef.current === 2 ? 2000 : 4000);
           callbacksRef.current.onError('Voice recognition temporarily unavailable.');
-          // Stop current session; onend will handle the restart via retryCount logic if needed, 
-          // or we just schedule it here and stop.
-          // Better: schedule it, and stop.
-          scheduleRestart(delay);
+          if (conversationModeRef.current) {
+            scheduleSafeRestart();
+          } else {
+            scheduleRestart(delay);
+          }
           try { recognition.stop(); } catch(e) {}
         } else {
           callbacksRef.current.onError('Voice recognition unavailable. Tap the microphone to retry.');
@@ -245,6 +307,7 @@ export function useSpeechRecognition({
       }
       
       if (error === 'not-allowed') {
+        conversationModeRef.current = false;
         callbacksRef.current.onError('PERMISSION_REQUIRED');
         changeMode('OFF');
         return;
@@ -274,12 +337,17 @@ export function useSpeechRecognition({
     };
 
     recognition.onend = () => {
+      isRecognitionRunningRef.current = false;
       runningRef.current = false;
       
-      // Centralized restart logic
-      if (modeRef.current !== 'OFF') {
-        // If we didn't explicitly schedule a restart with a delay (like network error),
-        // restart immediately (e.g. no-speech or browser auto-stop)
+      if (
+        conversationModeRef.current &&
+        !isSpeakingRef.current &&
+        !stopRequestedRef.current
+      ) {
+        scheduleSafeRestart();
+      } else if (modeRef.current === 'WAKE' || (modeRef.current === 'COMMAND' && !conversationModeRef.current)) {
+        // Keep existing behavior for wake word waiting if not in conversation mode
         if (!restartTimeoutRef.current) {
           scheduleRestart(100);
         }
@@ -289,20 +357,31 @@ export function useSpeechRecognition({
     recognitionRef.current = recognition;
 
     return () => {
-      stopRecognition();
+      if (restartTimeoutRef.current) {
+        clearTimeout(restartTimeoutRef.current);
+      }
+      try {
+        recognition.abort();
+      } catch (e) {}
+      recognitionRef.current = null;
     };
-  }, [changeMode, scheduleRestart, stopRecognition]);
+  }, [changeMode, scheduleRestart, scheduleSafeRestart]);
 
   const commitCommand = useCallback(() => {
     // We are done gathering the command
-    changeMode('OFF');
+    // Don't turn OFF mode permanently, let processCommand handle stopping
+    stopRequestedRef.current = false;
+    try {
+      recognitionRef.current?.stop();
+    } catch {}
+
     const finalResult = transcriptRef.current.final.trim() + ' ' + transcriptRef.current.interim.trim();
     if (finalResult.trim()) {
       callbacksRef.current.onCommandRecognized(finalResult.trim());
     } else {
       callbacksRef.current.onSilenceTimeout();
     }
-  }, [changeMode]);
+  }, []);
 
   useEffect(() => {
     commitCommandRef.current = commitCommand;
@@ -315,6 +394,15 @@ export function useSpeechRecognition({
     startWakeListening: () => changeMode('WAKE'),
     startCommandListening: () => changeMode('COMMAND'),
     stopListening: () => changeMode('OFF'),
-    commitCommand
+    commitCommand,
+    
+    // Export refs for page.tsx to coordinate
+    conversationModeRef,
+    isSpeakingRef,
+    stopRequestedRef,
+    isRecognitionRunningRef,
+    recognitionRef,
+    restartTimeoutRef,
+    scheduleSafeRestart
   };
 }

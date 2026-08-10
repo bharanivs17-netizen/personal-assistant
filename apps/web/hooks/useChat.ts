@@ -41,9 +41,7 @@ export function useChat({ onChunk, onComplete, onError }: UseChatProps = {}) {
       const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
 
       try {
-        const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-
-        const response = await fetch(`${API_URL}/api/chat`, {
+        const response = await fetch(`/api/chat`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

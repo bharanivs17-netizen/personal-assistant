@@ -735,4 +735,564 @@ export const OFFLINE_KNOWLEDGE: OfflineIntent[] = [
       ta: ['[DYNAMIC_ONLINE_STATUS]']
     }
   },
+  {
+    intent: 'TELL_JOKE',
+    category: 'fun',
+    phrases: {
+      en: ['tell me a joke', 'make me laugh', 'say a joke'],
+      ta: ['ஒரு ஜோக் சொல்லு', 'என்னை சிரிக்க வை'],
+      tanglish: ['joke sollu', 'sirikka vai'],
+      mixed: ['tell me a joke partner']
+    },
+    responses: {
+      en: ['Why do programmers prefer dark mode? Because light attracts bugs.', 'I\'ll try my best! Why did the computer go to the doctor? Because it had a virus.'],
+      ta: ['கம்ப்யூட்டருக்கு காய்ச்சல் வந்தால் எங்கே போகும்? வைரஸ் டாக்டரிடம்!']
+    }
+  },
+  {
+    intent: 'TELL_FACT',
+    category: 'fun',
+    phrases: {
+      en: ['tell me something interesting', 'tell me a fun fact', 'fun fact'],
+      ta: ['சுவாரஸ்யமான தகவல் சொல்லு', 'உண்மை தகவல் சொல்லு'],
+      tanglish: ['interesting ah edhavathu sollu', 'fun fact sollu'],
+      mixed: ['tell me something interesting partner']
+    },
+    responses: {
+      en: ['Here\'s something interesting: honey never spoils when properly stored.', 'A group of flamingos is called a flamboyance.'],
+      ta: ['தேன் ஒருபோதும் கெட்டுப்போகாது தெரியுமா?']
+    }
+  },
+  {
+    intent: 'WHAT_IS_INTERNET',
+    category: 'faq',
+    phrases: {
+      en: ['what is the internet', 'explain internet'],
+      ta: ['இணையம் என்றால் என்ன'],
+      tanglish: ['internet na enna'],
+      mixed: ['internet na enna partner']
+    },
+    responses: {
+      en: ['The internet is a worldwide network that allows computers and devices to communicate.'],
+      ta: ['இணையம் என்பது உலகம் முழுவதும் உள்ள கணினிகளை இணைக்கும் ஒரு வலைப்பின்னல்.']
+    }
+  },
+  {
+    intent: 'WHAT_IS_WIFI',
+    category: 'faq',
+    phrases: {
+      en: ['what is wifi', 'explain wifi'],
+      ta: ['வைஃபை என்றால் என்ன'],
+      tanglish: ['wifi na enna'],
+      mixed: ['wifi na enna partner']
+    },
+    responses: {
+      en: ['WiFi is a wireless networking technology used to connect devices to a network.'],
+      ta: ['வைஃபை என்பது கம்பியில்லாமல் இணையத்துடன் இணைக்க உதவும் ஒரு தொழில்நுட்பம்.']
+    }
+  },
+  {
+    intent: 'WHAT_IS_BLUETOOTH',
+    category: 'faq',
+    phrases: {
+      en: ['what is bluetooth', 'explain bluetooth'],
+      ta: ['ப்ளூடூத் என்றால் என்ன'],
+      tanglish: ['bluetooth na enna'],
+      mixed: ['bluetooth na enna partner']
+    },
+    responses: {
+      en: ['Bluetooth is a short-range wireless communication technology.'],
+      ta: ['ப்ளூடூத் என்பது குறுகிய தூரத்திற்குள் சாதனங்களை இணைக்கும் ஒரு வயர்லெஸ் தொழில்நுட்பம்.']
+    }
+  },
+  {
+    intent: 'WHAT_IS_COMPUTER',
+    category: 'faq',
+    phrases: {
+      en: ['what is a computer', 'explain computer'],
+      ta: ['கணினி என்றால் என்ன'],
+      tanglish: ['computer na enna'],
+      mixed: ['computer na enna partner']
+    },
+    responses: {
+      en: ['A computer is an electronic device that processes data and performs instructions.'],
+      ta: ['கணினி என்பது தரவுகளை கையாளும் மற்றும் கட்டளைகளை நிறைவேற்றும் ஒரு மின்னணு சாதனம்.']
+    }
+  },
+  {
+    intent: 'WHAT_IS_CPU',
+    category: 'faq',
+    phrases: {
+      en: ['what is a cpu', 'explain cpu'],
+      ta: ['சிபியு என்றால் என்ன'],
+      tanglish: ['cpu na enna'],
+      mixed: ['cpu na enna partner']
+    },
+    responses: {
+      en: ['A CPU is the main processor that executes instructions and performs calculations.'],
+      ta: ['சிபியு என்பது கணினியின் மூளை போன்றது, இது அனைத்து கட்டளைகளையும் நிறைவேற்றுகிறது.']
+    }
+  },
+  {
+    intent: 'WHAT_IS_RAM',
+    category: 'faq',
+    phrases: {
+      en: ['what is ram', 'explain ram'],
+      ta: ['ரேம் என்றால் என்ன'],
+      tanglish: ['ram na enna'],
+      mixed: ['ram na enna partner']
+    },
+    responses: {
+      en: ['RAM is temporary memory used by a computer while programs are running.'],
+      ta: ['ரேம் என்பது கணினியில் இயங்கும் நிரல்களுக்கான தற்காலிக நினைவகம் ஆகும்.']
+    }
+  },
+  {
+    intent: 'WHAT_IS_GPU',
+    category: 'faq',
+    phrases: {
+      en: ['what is a gpu', 'explain gpu'],
+      ta: ['ஜிபியு என்றால் என்ன'],
+      tanglish: ['gpu na enna'],
+      mixed: ['gpu na enna partner']
+    },
+    responses: {
+      en: ['A GPU is a processor designed especially for graphics and highly parallel computations.'],
+      ta: ['ஜிபியு என்பது கிராபிக்ஸ் மற்றும் வீடியோக்களை கையாளும் ஒரு பிரத்யேக செயலி.']
+    }
+  },
+  {
+    intent: 'WHAT_IS_OS',
+    category: 'faq',
+    phrases: {
+      en: ['what is an operating system', 'what is os', 'explain operating system'],
+      ta: ['இயக்க முறைமை என்றால் என்ன', 'ஓஎஸ் என்றால் என்ன'],
+      tanglish: ['os na enna', 'operating system na enna'],
+      mixed: ['operating system na enna partner']
+    },
+    responses: {
+      en: ['An operating system manages computer hardware and provides services for applications.'],
+      ta: ['ஓஎஸ் என்பது கணினியின் வன்பொருளையும் மென்பொருளையும் நிர்வகிக்கும் ஒரு முக்கிய நிரலாகும்.']
+    }
+  },
+  {
+    intent: 'WHAT_IS_WINDOWS',
+    category: 'faq',
+    phrases: {
+      en: ['what is windows', 'explain windows os'],
+      ta: ['விண்டோஸ் என்றால் என்ன'],
+      tanglish: ['windows na enna'],
+      mixed: ['windows na enna partner']
+    },
+    responses: {
+      en: ['Windows is an operating system developed by Microsoft.'],
+      ta: ['விண்டோஸ் என்பது மைக்ரோசாப்ட் நிறுவனம் உருவாக்கிய ஒரு பிரபலமான ஓஎஸ்.']
+    }
+  },
+  {
+    intent: 'WHAT_IS_LINUX',
+    category: 'faq',
+    phrases: {
+      en: ['what is linux', 'explain linux'],
+      ta: ['லினக்ஸ் என்றால் என்ன'],
+      tanglish: ['linux na enna'],
+      mixed: ['linux na enna partner']
+    },
+    responses: {
+      en: ['Linux is a family of open-source operating systems.'],
+      ta: ['லினக்ஸ் என்பது இலவசமாக கிடைக்கும் ஒரு ஓபன் சோர்ஸ் இயக்க முறைமை.']
+    }
+  },
+  {
+    intent: 'WHAT_IS_ANDROID',
+    category: 'faq',
+    phrases: {
+      en: ['what is android', 'explain android'],
+      ta: ['ஆண்ட்ராய்டு என்றால் என்ன'],
+      tanglish: ['android na enna'],
+      mixed: ['android na enna partner']
+    },
+    responses: {
+      en: ['Android is a mobile operating system developed primarily by Google.'],
+      ta: ['ஆண்ட்ராய்டு என்பது ஸ்மார்ட்போன்களுக்காக கூகுள் உருவாக்கிய ஒரு ஓஎஸ்.']
+    }
+  },
+  {
+    intent: 'WHAT_IS_IP',
+    category: 'faq',
+    phrases: {
+      en: ['what is an ip address', 'what is ip address'],
+      ta: ['ஐபி முகவரி என்றால் என்ன'],
+      tanglish: ['ip address na enna'],
+      mixed: ['ip address na enna partner']
+    },
+    responses: {
+      en: ['An IP address identifies a device or network interface on an IP network.'],
+      ta: ['ஐபி முகவரி என்பது இணையத்தில் ஒரு சாதனத்தை அடையாளம் காண பயன்படும் ஒரு எண்.']
+    }
+  },
+  {
+    intent: 'WHAT_IS_ROUTER',
+    category: 'faq',
+    phrases: {
+      en: ['what is a router'],
+      ta: ['ரவுட்டர் என்றால் என்ன'],
+      tanglish: ['router na enna'],
+      mixed: ['router na enna partner']
+    },
+    responses: {
+      en: ['A router forwards network traffic between different networks.'],
+      ta: ['ரவுட்டர் என்பது பல்வேறு நெட்வொர்க்குகளுக்கு இடையே தரவுகளை அனுப்பும் ஒரு சாதனம்.']
+    }
+  },
+  {
+    intent: 'WHAT_IS_SWITCH_NET',
+    category: 'faq',
+    phrases: {
+      en: ['what is a switch', 'what is a network switch'],
+      ta: ['நெட்வொர்க் ஸ்விட்ச் என்றால் என்ன'],
+      tanglish: ['network switch na enna'],
+      mixed: ['network switch na enna partner']
+    },
+    responses: {
+      en: ['A network switch connects devices within a local network and forwards Ethernet frames between them.'],
+      ta: ['நெட்வொர்க் ஸ்விட்ச் என்பது லோக்கல் நெட்வொர்க்கில் உள்ள பல சாதனங்களை இணைக்க பயன்படும் சாதனம்.']
+    }
+  },
+  {
+    intent: 'WHAT_IS_FIREWALL',
+    category: 'faq',
+    phrases: {
+      en: ['what is a firewall'],
+      ta: ['ஃபயர்வால் என்றால் என்ன'],
+      tanglish: ['firewall na enna'],
+      mixed: ['firewall na enna partner']
+    },
+    responses: {
+      en: ['A firewall controls network traffic according to security rules.'],
+      ta: ['ஃபயர்வால் என்பது நெட்வொர்க் பாதுகாப்பை உறுதி செய்யும் ஒரு அமைப்பு.']
+    }
+  },
+  {
+    intent: 'WHAT_IS_PORT',
+    category: 'faq',
+    phrases: {
+      en: ['what is a port', 'what is a network port'],
+      ta: ['நெட்வொர்க் போர்ட் என்றால் என்ன'],
+      tanglish: ['port na enna'],
+      mixed: ['port na enna partner']
+    },
+    responses: {
+      en: ['A port is a logical endpoint used by network services to communicate.'],
+      ta: ['போர்ட் என்பது மென்பொருள்கள் தரவுகளை பரிமாறிக் கொள்ள பயன்படுத்தும் ஒரு வழியமைப்பு.']
+    }
+  },
+  {
+    intent: 'WHAT_IS_PROTOCOL',
+    category: 'faq',
+    phrases: {
+      en: ['what is a protocol'],
+      ta: ['புரோட்டோகால் என்றால் என்ன'],
+      tanglish: ['protocol na enna'],
+      mixed: ['protocol na enna partner']
+    },
+    responses: {
+      en: ['A protocol is a set of rules that devices use to communicate.'],
+      ta: ['புரோட்டோகால் என்பது சாதனங்கள் ஒன்றோடொன்று பேசிக்கொள்ளும் போது பின்பற்றப்படும் விதிகளாகும்.']
+    }
+  },
+  {
+    intent: 'WHAT_IS_HTTP',
+    category: 'faq',
+    phrases: {
+      en: ['what is http'],
+      ta: ['எச்டிடிபி என்றால் என்ன'],
+      tanglish: ['http na enna'],
+      mixed: ['http na enna partner']
+    },
+    responses: {
+      en: ['HTTP is a protocol used to transfer information between web clients and servers.'],
+      ta: ['எச்டிடிபி என்பது இணையதள தரவுகளை பரிமாறிக் கொள்ள பயன்படும் ஒரு புரோட்டோகால்.']
+    }
+  },
+  {
+    intent: 'WHAT_IS_HTTPS',
+    category: 'faq',
+    phrases: {
+      en: ['what is https'],
+      ta: ['எச்டிடிபிஎஸ் என்றால் என்ன'],
+      tanglish: ['https na enna'],
+      mixed: ['https na enna partner']
+    },
+    responses: {
+      en: ['HTTPS is HTTP protected using encryption through TLS.'],
+      ta: ['எச்டிடிபிஎஸ் என்பது பாதுகாப்பான முறையில் தரவுகளை பரிமாறும் ஒரு முறை.']
+    }
+  },
+  {
+    intent: 'WHAT_IS_DNS',
+    category: 'faq',
+    phrases: {
+      en: ['what is dns'],
+      ta: ['டிஎன்எஸ் என்றால் என்ன'],
+      tanglish: ['dns na enna'],
+      mixed: ['dns na enna partner']
+    },
+    responses: {
+      en: ['DNS translates domain names into IP addresses and other network information.'],
+      ta: ['டிஎன்எஸ் என்பது இணையதள பெயர்களை ஐபி முகவரியாக மாற்றும் ஒரு அமைப்பு.']
+    }
+  },
+  {
+    intent: 'WHAT_IS_SERVER',
+    category: 'faq',
+    phrases: {
+      en: ['what is a server'],
+      ta: ['சர்வர் என்றால் என்ன'],
+      tanglish: ['server na enna'],
+      mixed: ['server na enna partner']
+    },
+    responses: {
+      en: ['A server is a computer or software system that provides services or resources to other devices.'],
+      ta: ['சர்வர் என்பது மற்ற சாதனங்களுக்கு சேவைகளை வழங்கும் ஒரு கணினி அமைப்பு.']
+    }
+  },
+  {
+    intent: 'WHAT_IS_CLOUD',
+    category: 'faq',
+    phrases: {
+      en: ['what is cloud computing', 'what is cloud'],
+      ta: ['க்ளவுட் கம்ப்யூட்டிங் என்றால் என்ன'],
+      tanglish: ['cloud computing na enna', 'cloud na enna'],
+      mixed: ['cloud computing na enna partner']
+    },
+    responses: {
+      en: ['Cloud computing provides computing resources such as storage and servers over a network.'],
+      ta: ['க்ளவுட் கம்ப்யூட்டிங் என்பது இணையம் மூலமாக சர்வர் மற்றும் ஸ்டோரேஜ் சேவைகளை பெறுவதாகும்.']
+    }
+  },
+  {
+    intent: 'WHAT_IS_CYBERSECURITY',
+    category: 'faq',
+    phrases: {
+      en: ['what is cybersecurity', 'what is cyber security'],
+      ta: ['சைபர் செக்யூரிட்டி என்றால் என்ன'],
+      tanglish: ['cybersecurity na enna'],
+      mixed: ['cybersecurity na enna partner']
+    },
+    responses: {
+      en: ['Cybersecurity involves protecting computers, networks, applications, and data from unauthorized access and attacks.'],
+      ta: ['சைபர் செக்யூரிட்டி என்பது கணினி மற்றும் இணைய பாதுகாப்பை உறுதி செய்யும் ஒரு துறையாகும்.']
+    }
+  },
+  {
+    intent: 'WHAT_IS_ENCRYPTION',
+    category: 'faq',
+    phrases: {
+      en: ['what is encryption'],
+      ta: ['என்கிரிப்ஷன் என்றால் என்ன'],
+      tanglish: ['encryption na enna'],
+      mixed: ['encryption na enna partner']
+    },
+    responses: {
+      en: ['Encryption transforms readable data into a protected form that requires the appropriate key to recover.'],
+      ta: ['என்கிரிப்ஷன் என்பது தரவுகளை ரகசிய குறியீடுகளாக மாற்றி பாதுகாக்கும் ஒரு முறை.']
+    }
+  },
+  {
+    intent: 'WHAT_IS_AUTHENTICATION',
+    category: 'faq',
+    phrases: {
+      en: ['what is authentication'],
+      ta: ['அத்தண்டிகேஷன் என்றால் என்ன'],
+      tanglish: ['authentication na enna'],
+      mixed: ['authentication na enna partner']
+    },
+    responses: {
+      en: ['Authentication verifies who a user or system is.'],
+      ta: ['அத்தண்டிகேஷன் என்பது ஒரு நபர் யார் என்பதை உறுதி செய்யும் முறையாகும்.']
+    }
+  },
+  {
+    intent: 'WHAT_IS_AUTHORIZATION',
+    category: 'faq',
+    phrases: {
+      en: ['what is authorization'],
+      ta: ['ஆதரைசேஷன் என்றால் என்ன'],
+      tanglish: ['authorization na enna'],
+      mixed: ['authorization na enna partner']
+    },
+    responses: {
+      en: ['Authorization determines what an authenticated user or system is allowed to access.'],
+      ta: ['ஆதரைசேஷன் என்பது ஒரு நபர் எதையெல்லாம் பயன்படுத்த முடியும் என்பதை தீர்மானிக்கும் முறை.']
+    }
+  },
+  {
+    intent: 'WHAT_IS_PASSWORD',
+    category: 'faq',
+    phrases: {
+      en: ['what is a password'],
+      ta: ['பாஸ்வேர்ட் என்றால் என்ன', 'கடவுச்சொல் என்றால் என்ன'],
+      tanglish: ['password na enna'],
+      mixed: ['password na enna partner']
+    },
+    responses: {
+      en: ['A password is a secret used to authenticate access to an account or system.'],
+      ta: ['பாஸ்வேர்ட் என்பது உங்கள் கணக்கை பாதுகாக்கும் ஒரு ரகசிய குறியீடு.']
+    }
+  },
+  {
+    intent: 'WHAT_IS_STRONG_PASSWORD',
+    category: 'faq',
+    phrases: {
+      en: ['what is a strong password'],
+      ta: ['ஸ்ட்ராங் பாஸ்வேர்ட் என்றால் என்ன'],
+      tanglish: ['strong password na enna'],
+      mixed: ['strong password na enna partner']
+    },
+    responses: {
+      en: ['A strong password is long, unique, and difficult to guess.'],
+      ta: ['ஸ்ட்ராங் பாஸ்வேர்ட் என்பது யாராலும் எளிதில் கண்டுபிடிக்க முடியாத ஒரு கடினமான கடவுச்சொல்.']
+    }
+  },
+  {
+    intent: 'WHAT_IS_VIRUS',
+    category: 'faq',
+    phrases: {
+      en: ['what is a virus', 'what is computer virus'],
+      ta: ['கம்ப்யூட்டர் வைரஸ் என்றால் என்ன', 'வைரஸ் என்றால் என்ன'],
+      tanglish: ['virus na enna', 'computer virus na enna'],
+      mixed: ['virus na enna partner']
+    },
+    responses: {
+      en: ['A computer virus is malicious software that can replicate or spread and may damage or disrupt systems.'],
+      ta: ['கம்ப்யூட்டர் வைரஸ் என்பது கணினியை பாதிக்கக்கூடிய ஒரு ஆபத்தான மென்பொருள்.']
+    }
+  },
+  {
+    intent: 'WHAT_IS_MALWARE',
+    category: 'faq',
+    phrases: {
+      en: ['what is malware'],
+      ta: ['மால்வேர் என்றால் என்ன'],
+      tanglish: ['malware na enna'],
+      mixed: ['malware na enna partner']
+    },
+    responses: {
+      en: ['Malware is software designed to perform harmful or unwanted actions.'],
+      ta: ['மால்வேர் என்பது கணினிக்கு தீங்கு விளைவிக்க உருவாக்கப்பட்ட ஒரு மென்பொருள்.']
+    }
+  },
+  {
+    intent: 'WHAT_IS_DEBUGGING',
+    category: 'faq',
+    phrases: {
+      en: ['what is debugging'],
+      ta: ['டீபக்கிங் என்றால் என்ன'],
+      tanglish: ['debugging na enna'],
+      mixed: ['debugging na enna partner']
+    },
+    responses: {
+      en: ['Debugging is the process of finding and fixing problems in software.'],
+      ta: ['டீபக்கிங் என்பது மென்பொருளில் உள்ள பிழைகளை கண்டுபிடித்து சரிசெய்யும் முறை.']
+    }
+  },
+  {
+    intent: 'WHAT_IS_DATA_STRUCTURE',
+    category: 'faq',
+    phrases: {
+      en: ['what is a data structure', 'explain data structure'],
+      ta: ['டேட்டா ஸ்ட்ரக்சர் என்றால் என்ன'],
+      tanglish: ['data structure na enna'],
+      mixed: ['data structure na enna partner']
+    },
+    responses: {
+      en: ['A data structure organizes data so it can be stored and accessed efficiently.'],
+      ta: ['டேட்டா ஸ்ட்ரக்சர் என்பது தரவுகளை முறையாக சேமித்து கையாள உதவும் ஒரு அமைப்பு.']
+    }
+  },
+  {
+    intent: 'WHAT_IS_OOP',
+    category: 'faq',
+    phrases: {
+      en: ['what is oop', 'explain oop', 'what is object oriented programming'],
+      ta: ['ஓஓபி என்றால் என்ன', 'ஆப்ஜெக்ட் ஓரியண்டட் புரோகிராமிங் என்றால் என்ன'],
+      tanglish: ['oop na enna'],
+      mixed: ['oop na enna partner']
+    },
+    responses: {
+      en: ['OOP stands for Object-Oriented Programming, a programming approach based around objects and classes.'],
+      ta: ['ஓஓபி என்பது ஆப்ஜெக்ட்களை அடிப்படையாக கொண்ட ஒரு நிரலாக்க முறை.']
+    }
+  },
+  {
+    intent: 'WHAT_IS_POLYMORPHISM',
+    category: 'faq',
+    phrases: {
+      en: ['what is polymorphism', 'explain polymorphism'],
+      ta: ['பாலிமார்பிசம் என்றால் என்ன'],
+      tanglish: ['polymorphism na enna'],
+      mixed: ['polymorphism na enna partner']
+    },
+    responses: {
+      en: ['Polymorphism allows the same interface or operation to work with different types.'],
+      ta: ['பாலிமார்பிசம் என்பது ஒரே செயல்பாடு வெவ்வேறு வடிவங்களில் செயல்பட உதவும் ஒரு முறை.']
+    }
+  },
+  {
+    intent: 'WHAT_IS_ENCAPSULATION',
+    category: 'faq',
+    phrases: {
+      en: ['what is encapsulation', 'explain encapsulation'],
+      ta: ['என்கேப்சுலேஷன் என்றால் என்ன'],
+      tanglish: ['encapsulation na enna'],
+      mixed: ['encapsulation na enna partner']
+    },
+    responses: {
+      en: ['Encapsulation groups data and related operations together while controlling access to internal details.'],
+      ta: ['என்கேப்சுலேஷன் என்பது தரவுகளையும் செயல்பாடுகளையும் ஒன்றாக இணைத்து பாதுகாக்கும் முறை.']
+    }
+  },
+  {
+    intent: 'WHAT_IS_ABSTRACTION',
+    category: 'faq',
+    phrases: {
+      en: ['what is abstraction', 'explain abstraction'],
+      ta: ['அப்ஸ்ட்ராக்ஷன் என்றால் என்ன'],
+      tanglish: ['abstraction na enna'],
+      mixed: ['abstraction na enna partner']
+    },
+    responses: {
+      en: ['Abstraction hides unnecessary implementation details and exposes the important functionality.'],
+      ta: ['அப்ஸ்ட்ராக்ஷன் என்பது தேவையற்ற விவரங்களை மறைத்து முக்கியமானவற்றை மட்டும் காண்பிக்கும் முறை.']
+    }
+  },
+  {
+    intent: 'REMEMBER_ME',
+    category: 'faq',
+    phrases: {
+      en: ['do you remember me', 'what can you remember'],
+      ta: ['உனக்கு என்னை நியாபகம் இருக்கா'],
+      tanglish: ['enna niyabagam irukka', 'enna marandhutiya'],
+      mixed: ['do you remember me partner']
+    },
+    responses: {
+      en: ['I can remember information that you choose to save when memory is enabled.', 'I can show you the information you\'ve chosen to save.'],
+      ta: ['நீங்கள் சேமிக்க விரும்பும் தகவல்களை என்னால் நினைவில் வைத்துக்கொள்ள முடியும்.']
+    }
+  },
+  {
+    intent: 'TAKE_NOTE',
+    category: 'faq',
+    phrases: {
+      en: ['take a note', 'set a reminder', 'remember this', 'note this down'],
+      ta: ['இதை குறித்துக்கொள்', 'ரிமைண்டர் வை'],
+      tanglish: ['note panniko', 'reminder vai', 'idha niyabagam vechuko'],
+      mixed: ['note panniko partner']
+    },
+    responses: {
+      en: ['Sure. Tell me what you\'d like me to save or remember.', 'Sure. Tell me what you want to be reminded about and when.'],
+      ta: ['சரி. நீங்கள் எதை சேமிக்க விரும்புகிறீர்கள் என்று சொல்லுங்கள்.']
+    }
+  }
 ];
