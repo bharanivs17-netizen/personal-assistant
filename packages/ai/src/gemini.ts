@@ -15,7 +15,7 @@ Follow these strict rules:
 3. Use natural conversational language.
 4. If you don't know something, confidently state that you don't know.`;
 
-  constructor(apiKey: string, modelName: string = 'gemini-1.5-flash') {
+  constructor(apiKey: string, modelName: string = 'gemini-3.6-flash') {
     if (!apiKey) {
       throw new Error("Google Gemini API key is missing");
     }

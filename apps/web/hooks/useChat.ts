@@ -41,6 +41,7 @@ export function useChat({ onChunk, onComplete, onError }: UseChatProps = {}) {
       const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
 
       try {
+        console.log(`[PARTNER] Gemini request started`);
         const response = await fetch(`/api/chat`, {
           method: 'POST',
           headers: {
@@ -54,23 +55,29 @@ export function useChat({ onChunk, onComplete, onError }: UseChatProps = {}) {
           signal: controller.signal
         });
         
-        if (!response.ok) {
+        const data = await response.json();
+        
+        if (!response.ok || !data.success) {
+          console.log(`[PARTNER] Gemini error code:`, data.code || response.status);
           let errMsg = `Server error: ${response.status}`;
-          try {
-            const errData = await response.json();
-            if (response.status === 429 && errData.error?.code === 'QUOTA_EXCEEDED') {
-              errMsg = 'Partner is temporarily unavailable because the Gemini API quota has been reached. Please try again later.';
-            } else if (errData.error?.message) {
-              errMsg = `API ERROR HTTP ${response.status}: ${errData.error.message}`;
-            } else if (errData.error) {
-              errMsg = `API ERROR HTTP ${response.status}: ${errData.error}`;
-            }
-          } catch(e) {}
+          
+          if (data.code === 'GEMINI_QUOTA_ERROR') {
+            errMsg = data.message || 'Gemini quota is currently exhausted. Local PARTNER commands are still available.';
+          } else if (data.code === 'GEMINI_MODEL_ERROR') {
+            errMsg = data.message || 'The configured Gemini model is unavailable. Please check the Gemini model configuration.';
+          } else if (data.code === 'GEMINI_AUTH_ERROR') {
+            errMsg = data.message || 'Gemini authentication failed. Please check the server API key.';
+          } else if (data.code === 'GEMINI_NETWORK_ERROR') {
+            errMsg = data.message || 'PARTNER could not connect to Gemini.';
+          } else if (data.message) {
+            errMsg = `API ERROR HTTP ${response.status}: ${data.message}`;
+          }
+          
           throw new Error(errMsg);
         }
         
-        const data = await response.json();
         const responseText = data.text;
+        console.log(`[PARTNER] Gemini response received`);
 
         if (!responseText || !responseText.trim()) {
           throw new Error("Empty Gemini response");

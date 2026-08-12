@@ -159,5 +159,85 @@ export const SYSTEM_TOOLS: ToolIntent[] = [
       tanglish: ['mic on la irukka', 'volume evlo irukku', 'brightness evlo irukku'],
       mixed: ['system status enna']
     }
+  },
+  {
+    intent: 'OPEN_YOUTUBE',
+    toolName: 'open_youtube',
+    phrases: {
+      en: ['open youtube', 'open youtube and play tamil song', 'play tamil song on youtube', 'open youtube and play', 'play on youtube'],
+      ta: ['யூடியூப் திற', 'யூடியூப் திறந்து', 'யூடியூப் திறந்து தமிழ் பாடல் போடு'],
+      tanglish: ['youtube open pannu', 'youtube la', 'youtube la tamil song play pannu'],
+      mixed: ['open youtube partner']
+    }
+  },
+  {
+    intent: 'OPEN_GOOGLE',
+    toolName: 'open_google',
+    phrases: {
+      en: ['open google'],
+      ta: ['கூகுள் திற', 'google திற', 'google திறந்து'],
+      tanglish: ['google open pannu'],
+      mixed: ['open google partner']
+    }
+  },
+  {
+    intent: 'OPEN_GMAIL',
+    toolName: 'open_gmail',
+    phrases: {
+      en: ['open gmail'],
+      ta: ['ஜிமெயில் திற', 'gmail திற'],
+      tanglish: ['gmail open pannu'],
+      mixed: ['open gmail partner']
+    }
+  },
+  {
+    intent: 'OPEN_WHATSAPP_WEB',
+    toolName: 'open_whatsapp_web',
+    phrases: {
+      en: ['open whatsapp', 'open whatsapp web'],
+      ta: ['வாட்ஸ்அப் திற'],
+      tanglish: ['whatsapp open pannu', 'whatsapp web open pannu'],
+      mixed: ['open whatsapp partner']
+    }
+  },
+  {
+    intent: 'SEARCH_WEB',
+    toolName: 'search_web',
+    phrases: {
+      en: ['search web for', 'search google for', 'search the web'],
+      ta: ['பற்றி தேடு'],
+      tanglish: ['search pannu', 'google la search pannu', 'pathi search pannu'],
+      mixed: ['search web partner']
+    }
+  },
+  {
+    intent: 'OPEN_CHROME',
+    toolName: 'open_chrome',
+    phrases: {
+      en: ['open chrome', 'start chrome', 'launch chrome'],
+      ta: ['க்ரோம் திற'],
+      tanglish: ['chrome open pannu'],
+      mixed: ['open chrome partner']
+    }
+  },
+  {
+    intent: 'SET_ALARM',
+    toolName: 'set_alarm',
+    phrases: {
+      en: ['set an alarm', 'set alarm', 'wake me up'],
+      ta: ['அலாரம் வை'],
+      tanglish: ['alarm vai', 'alarm set pannu'],
+      mixed: ['set alarm partner']
+    }
+  },
+  {
+    intent: 'SET_REMINDER',
+    toolName: 'set_reminder',
+    phrases: {
+      en: ['set a reminder', 'set reminder', 'remind me'],
+      ta: ['நினைவூட்டல் வை', 'ஞாபகப்படுத்து'],
+      tanglish: ['reminder vai', 'reminder set pannu', 'nyabaga paduthu', 'remind pannu'],
+      mixed: ['set reminder partner']
+    }
   }
 ];

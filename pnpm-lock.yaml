@@ -42,6 +42,9 @@ importers:
       '@partner/shared':
         specifier: workspace:*
         version: link:../../packages/shared
+      '@partner/tools':
+        specifier: workspace:*
+        version: link:../../packages/tools
       '@partner/voice':
         specifier: workspace:*
         version: link:../../packages/voice

@@ -65,6 +65,74 @@ export type MatchResult = {
 export function matchIntent(transcript: string): MatchResult {
   const normalized = normalizeSpeech(transcript);
   
+  // 0. Regex-based Query Extraction for dynamic intents
+  const youtubeRegexes = [
+    /^open\s+youtube(?:\s+and)?(?:\s+(?:play|search(?:\s+for)?))?\s*(.*)$/i,
+    /^play\s+(.+?)\s+on\s+youtube$/i,
+    /^youtube\s+la\s+(.+?)\s+(?:play\s+)?pannu$/i,
+    /^youtube\s+la\s+(.+?)\s+play\s+pannu$/i,
+    /^யூடியூப்\s+திறந்து\s+(.+)$/i
+  ];
+  
+  for (const regex of youtubeRegexes) {
+    const m = transcript.match(regex) || normalized.match(regex);
+    if (m) {
+      let query = m[1] ? m[1].trim() : '';
+      if (query) {
+        query = query.replace(/\s+(play|play pannu|pannu|search|search for)$/i, '').trim();
+      }
+      return { intent: 'OPEN_YOUTUBE', isTool: true, toolName: 'open_youtube', toolArgs: { query } };
+    }
+  }
+
+  const searchRegexes = [
+    /search web for (.+)/i,
+    /search google for (.+)/i,
+    /google la (.+) search pannu/i,
+    /(.+) பற்றி search pannu/i,
+    /(.+) பற்றி தேடு/i
+  ];
+  for (const regex of searchRegexes) {
+    const m = transcript.match(regex) || normalized.match(regex);
+    if (m && m[1]) {
+      return { intent: 'SEARCH_WEB', isTool: true, toolName: 'search_web', toolArgs: { query: m[1].trim() } };
+    }
+  }
+
+  const alarmRegexes = [
+    /set (?:an )?alarm for (.+)/i,
+    /set alarm at (.+)/i,
+    /wake me up at (.+)/i,
+    /அலாரம் (.+) மணிக்கு வை/i,
+    /(.+) மணிக்கு அலாரம் வை/i,
+    /alarm (.+) ku vai/i,
+    /(.+) ku alarm vai/i
+  ];
+  for (const regex of alarmRegexes) {
+    const m = transcript.match(regex) || normalized.match(regex);
+    if (m && m[1]) {
+      return { intent: 'SET_ALARM', isTool: true, toolName: 'set_alarm', toolArgs: { time: m[1].trim() } };
+    }
+  }
+
+  const reminderRegexes = [
+    /set (?:a )?reminder to (.+) at (.+)/i,
+    /remind me to (.+) at (.+)/i,
+    /set (?:a )?reminder for (.+)/i,
+    /remind me to (.+)/i
+  ];
+  for (const regex of reminderRegexes) {
+    const m = transcript.match(regex) || normalized.match(regex);
+    if (m) {
+      if (m[1] && m[2]) {
+        return { intent: 'SET_REMINDER', isTool: true, toolName: 'set_reminder', toolArgs: { text: m[1].trim(), time: m[2].trim() } };
+      } else if (m[1]) {
+        return { intent: 'SET_REMINDER', isTool: true, toolName: 'set_reminder', toolArgs: { text: m[1].trim() } };
+      }
+    }
+  }
+
+
   // 1. Exact Match - Tools
   for (const tool of SYSTEM_TOOLS) {
     const allPhrases = [

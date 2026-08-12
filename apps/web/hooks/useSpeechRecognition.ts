@@ -225,6 +225,7 @@ export function useSpeechRecognition({
     recognition.interimResults = true;
 
     recognition.onstart = () => {
+      console.log("[PARTNER] Recognition started");
       isRecognitionRunningRef.current = true;
       runningRef.current = true;
       if (modeRef.current === 'COMMAND') {
@@ -337,6 +338,7 @@ export function useSpeechRecognition({
     };
 
     recognition.onend = () => {
+      console.log("[PARTNER] Recognition stopped");
       isRecognitionRunningRef.current = false;
       runningRef.current = false;
       
@@ -363,6 +365,10 @@ export function useSpeechRecognition({
       try {
         recognition.abort();
       } catch (e) {}
+      recognition.onresult = null;
+      recognition.onerror = null;
+      recognition.onend = null;
+      recognition.onstart = null;
       recognitionRef.current = null;
     };
   }, [changeMode, scheduleRestart, scheduleSafeRestart]);

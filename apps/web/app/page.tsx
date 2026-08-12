@@ -14,6 +14,7 @@ import { useAudioAnalyser } from '@/hooks/useAudioAnalyser';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { useChat } from '@/hooks/useChat';
 import { WebSpeechTTS, TTSDebugInfo } from '@partner/voice';
+import { registry, registerWebTools } from '@partner/tools';
 
 type ChatMessage = { role: 'user' | 'partner', text: string };
 
@@ -29,10 +30,12 @@ export default function Home() {
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [ttsDebug, setTtsDebug] = useState<TTSDebugInfo | null>(null);
   const processingRef = useRef(false);
+  const lastProcessedTranscriptRef = useRef<string | null>(null);
   const pendingToolRef = useRef<{ toolName: string, toolArgs?: any } | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    registerWebTools();
     setIsOnline(navigator.onLine);
     const handleOnline = () => setIsOnline(true);
     const handleOffline = () => setIsOnline(false);
@@ -138,10 +141,12 @@ export default function Home() {
       lang: settings.responseLanguage,
       onDebug: setTtsDebug,
       onStart: () => {
+        console.log("[PARTNER] TTS started");
         isSpeakingRef.current = true;
         setState(AssistantState.SPEAKING);
       },
       onEnd: () => {
+        console.log("[PARTNER] TTS finished");
         isSpeakingRef.current = false;
         if (keepListening || (conversationModeRef.current && !stopRequestedRef.current)) {
           setState(nextState === AssistantState.READY ? AssistantState.CONTINUOUS_LISTENING : nextState);
@@ -165,10 +170,11 @@ export default function Home() {
   const { isGenerating, generateResponse } = useChat({
     onChunk: () => {},
     onComplete: (fullText) => {
-      processingRef.current = false;
+      // NOTE: DO NOT set processingRef to false here, wait for TTS to finish!
       if (fullText) {
         speakResponse(fullText);
       } else {
+        processingRef.current = false;
         if (conversationModeRef.current) {
           setState(AssistantState.CONTINUOUS_LISTENING);
           scheduleSafeRestart();
@@ -244,8 +250,22 @@ export default function Home() {
         return;
     }
 
-    if (processingRef.current) return;
+    if (processingRef.current) {
+      console.log("[PARTNER] Processing skipped - already processing");
+      return;
+    }
+
+    const normalizedTranscript = text.toLowerCase();
+    if (lastProcessedTranscriptRef.current === normalizedTranscript) {
+      console.log("[PARTNER] Duplicate transcript ignored:", normalizedTranscript);
+      return;
+    }
+    
+    lastProcessedTranscriptRef.current = normalizedTranscript;
     processingRef.current = true;
+    
+    console.log("[PARTNER] Processing started");
+    console.log("[PARTNER] Final transcript:", text);
     
     stopRequestedRef.current = false;
     try { recognitionRef.current?.stop(); } catch {}
@@ -256,12 +276,47 @@ export default function Home() {
     // 1. Check Offline & Tool Intents
     const match = matchIntent(text);
     if (match) {
+       console.log("[PARTNER] Intent:", match.intent);
+       if (match.isTool) {
+           console.log("[PARTNER] Tool:", match.toolName);
+           console.log("[PARTNER] Tool args:", match.toolArgs);
+       }
        setIsLocalResponse(true);
        
        if (match.isTool) {
            if (match.intent === 'PARTNER_MICROPHONE_OFF') {
                toggleListening();
                setChatHistory(prev => [...prev, { role: 'partner', text: "Microphone disabled." }]);
+               processingRef.current = false;
+               return;
+           }
+
+           // Web Tools
+           const webTools = ['open_youtube', 'search_web', 'open_google', 'open_gmail', 'open_whatsapp_web'];
+           if (match.toolName && webTools.includes(match.toolName)) {
+               console.log("[PARTNER] Local intent:", match.intent);
+               console.log("[PARTNER] Tool:", match.toolName);
+               console.log("[PARTNER] Args:", match.toolArgs);
+               
+               const tool = registry.getTool(match.toolName);
+               if (tool) {
+                   const result = await tool.execute(match.toolArgs);
+                   if (result.success && result.data?.url) {
+                       console.log("[PARTNER] Opening URL:", result.data.url);
+                       window.open(result.data.url, '_blank');
+                       let responseMsg = result.message;
+                       
+                       if (match.intent === 'OPEN_YOUTUBE' && match.toolArgs?.query) {
+                           responseMsg = `Opening YouTube and searching for ${match.toolArgs.query}.`;
+                       } else if (match.intent === 'SEARCH_WEB' && match.toolArgs?.query) {
+                           responseMsg = `Searching the web for ${match.toolArgs.query}.`;
+                       }
+                       
+                       speakResponse(responseMsg);
+                   } else {
+                       speakResponse(result.message || "Failed to open the link.");
+                   }
+               }
                processingRef.current = false;
                return;
            }
@@ -285,7 +340,7 @@ export default function Home() {
                    return;
                }
            } else {
-               speakResponse("Open the PARTNER desktop app to use PC controls.");
+               speakResponse("This feature requires the PARTNER Android/Desktop application.");
                processingRef.current = false;
                return;
            }
@@ -335,6 +390,7 @@ export default function Home() {
        return;
     }
 
+    console.log("[PARTNER] Gemini request");
     generateResponse(text);
   }, [
     state, isSpeakingRef, conversationModeRef, stopRequestedRef, restartTimeoutRef,

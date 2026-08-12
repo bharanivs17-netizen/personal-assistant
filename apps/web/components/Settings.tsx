@@ -1,5 +1,5 @@
 'use client';
-
+import { useState, useEffect } from 'react';
 import type { PartnerSettings } from '@partner/shared';
 
 interface SettingsProps {
@@ -22,6 +22,60 @@ export default function Settings({
   const displayPermission = 
     permissionStatus === 'granted' ? 'Granted' : 
     permissionStatus === 'denied' ? 'Denied' : 'Not requested';
+
+  const [backendStatus, setBackendStatus] = useState('CHECKING...');
+  const [geminiStatus, setGeminiStatus] = useState('CHECKING...');
+  const [geminiModel, setGeminiModel] = useState('...');
+  const [isTestingGemini, setIsTestingGemini] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      // Check backend health
+      fetch('/api/health')
+        .then(res => res.json())
+        .then(data => setBackendStatus(data.status === 'ok' ? 'CONNECTED' : 'ERROR'))
+        .catch(() => setBackendStatus('ERROR'));
+
+      // Check gemini status
+      fetch('/api/gemini/status')
+        .then(res => res.json())
+        .then(data => {
+          setGeminiModel(data.model || 'Unknown');
+          if (data.configured) {
+            setGeminiStatus('CONFIGURED');
+          } else {
+            setGeminiStatus('NOT CONFIGURED');
+          }
+        })
+        .catch(() => setGeminiStatus('ERROR'));
+    }
+  }, [isOpen]);
+
+  const testGemini = async () => {
+    setIsTestingGemini(true);
+    setGeminiStatus('TESTING...');
+    try {
+      const response = await fetch('/api/gemini/test', { 
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: "Reply with exactly: PARTNER GEMINI TEST OK" })
+      });
+      const data = await response.json();
+      
+      if (response.ok && data.success) {
+        setGeminiStatus('CONNECTED');
+      } else {
+        if (data.code === 'GEMINI_QUOTA_ERROR') setGeminiStatus('QUOTA EXCEEDED');
+        else if (data.code === 'GEMINI_MODEL_ERROR') setGeminiStatus('MODEL ERROR');
+        else if (data.code === 'GEMINI_NOT_CONFIGURED') setGeminiStatus('NOT CONFIGURED');
+        else setGeminiStatus('ERROR');
+      }
+    } catch (error) {
+      setGeminiStatus('ERROR');
+    }
+    setIsTestingGemini(false);
+  };
+
   return (
     <>
       {/* Overlay */}
@@ -154,15 +208,28 @@ export default function Settings({
             </div>
             <div className="settings-row">
               <span className="settings-row-label">Backend</span>
-              <span className="settings-row-value accent">CONNECTED</span>
+              <span className="settings-row-value accent">{backendStatus}</span>
+            </div>
+            <div className="settings-row" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
+                <span className="settings-row-label">Gemini</span>
+                <span className="settings-row-value accent">{geminiStatus}</span>
+              </div>
+              <button 
+                onClick={testGemini} 
+                disabled={isTestingGemini}
+                style={{ marginTop: '8px', padding: '4px 8px', fontSize: '12px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+              >
+                {isTestingGemini ? 'TESTING...' : 'TEST GEMINI CONNECTION'}
+              </button>
             </div>
             <div className="settings-row">
-              <span className="settings-row-label">Gemini</span>
-              <span className="settings-row-value accent">AVAILABLE</span>
+              <span className="settings-row-label">Model</span>
+              <span className="settings-row-value accent">{geminiModel}</span>
             </div>
             <div className="settings-row">
               <span className="settings-row-label">Microphone</span>
-              <span className="settings-row-value">{permissionStatus === 'granted' ? 'AVAILABLE' : 'DENIED'}</span>
+              <span className="settings-row-value">{permissionStatus === 'granted' ? 'GRANTED' : 'DENIED'}</span>
             </div>
             <div className="settings-row">
               <span className="settings-row-label">Speech Recognition</span>
