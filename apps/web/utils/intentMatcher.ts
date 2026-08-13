@@ -69,9 +69,11 @@ export function matchIntent(transcript: string): MatchResult {
   const youtubeRegexes = [
     /^open\s+youtube(?:\s+and)?(?:\s+(?:play|search(?:\s+for)?))?\s*(.*)$/i,
     /^play\s+(.+?)\s+on\s+youtube$/i,
+    /^search\s+(?:for\s+)?(.+?)\s+on\s+youtube$/i,
     /^youtube\s+la\s+(.+?)\s+(?:play\s+)?pannu$/i,
-    /^youtube\s+la\s+(.+?)\s+play\s+pannu$/i,
-    /^யூடியூப்\s+திறந்து\s+(.+)$/i
+    /^யூடியூப்\s+திறந்து\s+(.+)$/i,
+    /^play\s+(.*(?:music|songs?|audio|padalgal|pattu).*)$/i,
+    /^open\s+youtube\s+(.+)$/i
   ];
   
   for (const regex of youtubeRegexes) {
@@ -80,6 +82,8 @@ export function matchIntent(transcript: string): MatchResult {
       let query = m[1] ? m[1].trim() : '';
       if (query) {
         query = query.replace(/\s+(play|play pannu|pannu|search|search for)$/i, '').trim();
+        // Remove trailing "on youtube" if present
+        query = query.replace(/\s+on\s+youtube$/i, '').trim();
       }
       return { intent: 'OPEN_YOUTUBE', isTool: true, toolName: 'open_youtube', toolArgs: { query } };
     }

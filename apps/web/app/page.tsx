@@ -165,14 +165,15 @@ export default function Home() {
       lang: settings.responseLanguage,
       onDebug: setTtsDebug,
       onStart: () => {
-        console.log("[PARTNER][ANDROID] TTS START");
+        console.log("[PARTNER][VOICE] TTS started");
         isSpeakingRef.current = true;
         setState(AssistantState.SPEAKING);
       },
       onEnd: () => {
-        console.log("[PARTNER][ANDROID] TTS END");
+        console.log("[PARTNER][VOICE] TTS ended");
         isSpeakingRef.current = false;
         if (keepListening || (conversationModeRef.current && !stopRequestedRef.current)) {
+          console.log("[PARTNER][VOICE] ready for next command");
           setState(nextState === AssistantState.READY ? AssistantState.CONTINUOUS_LISTENING : nextState);
           scheduleSafeRestart();
         } else {
@@ -318,16 +319,17 @@ export default function Home() {
            // Web Tools
            const webTools = ['open_youtube', 'search_web', 'open_google', 'open_gmail', 'open_whatsapp_web'];
            if (match.toolName && webTools.includes(match.toolName)) {
-               console.log("[PARTNER] Local intent:", match.intent);
-               console.log("[PARTNER] Tool:", match.toolName);
-               console.log("[PARTNER] Args:", match.toolArgs);
+               console.log("[PARTNER][INTENT] Transcript:", text);
+               console.log("[PARTNER][INTENT] Detected intent:", match.intent);
+               console.log("[PARTNER][INTENT] Target:", match.toolName);
+               console.log("[PARTNER][INTENT] Query:", match.toolArgs?.query || '');
+               console.log("[PARTNER][INTENT] Executing action:", match.intent);
                
                const tool = registry.getTool(match.toolName);
                if (tool) {
                    const result = await tool.execute(match.toolArgs);
                    if (result.success && result.data?.url) {
                        console.log("[PARTNER] Opening URL:", result.data.url);
-                       window.open(result.data.url, '_blank');
                        let responseMsg = result.message;
                        
                        if (match.intent === 'OPEN_YOUTUBE' && match.toolArgs?.query) {
@@ -336,7 +338,37 @@ export default function Home() {
                            responseMsg = `Searching the web for ${match.toolArgs.query}.`;
                        }
                        
-                       speakResponse(responseMsg);
+                       setChatHistory(prev => [...prev, { role: 'partner', text: responseMsg }]);
+                       if (ttsRef.current) ttsRef.current.stop();
+                       isSpeakingRef.current = true;
+                       setState(AssistantState.SPEAKING);
+                       
+                       const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+                       
+                       ttsRef.current?.speak(responseMsg, {
+                         speed: settings.speechSpeed,
+                         lang: settings.responseLanguage,
+                         onEnd: () => {
+                           isSpeakingRef.current = false;
+                           if (isMobile) {
+                               window.location.href = result.data.url;
+                           } else {
+                               window.open(result.data.url, '_blank');
+                               setState(AssistantState.CONTINUOUS_LISTENING);
+                               scheduleSafeRestart();
+                           }
+                         },
+                         onError: () => {
+                           isSpeakingRef.current = false;
+                           if (isMobile) {
+                               window.location.href = result.data.url;
+                           } else {
+                               window.open(result.data.url, '_blank');
+                               setState(AssistantState.CONTINUOUS_LISTENING);
+                               scheduleSafeRestart();
+                           }
+                         }
+                       });
                    } else {
                        speakResponse(result.message || "Failed to open the link.");
                    }
@@ -440,6 +472,7 @@ export default function Home() {
 
   // Watch state to start/stop listening mode
   useEffect(() => {
+    console.log("[PARTNER][VOICE] state:", state);
     if (state === AssistantState.READY) {
       startWakeListening();
     } else if (state === AssistantState.LISTENING || state === AssistantState.CONTINUOUS_LISTENING || state === AssistantState.CONFIRMING) {

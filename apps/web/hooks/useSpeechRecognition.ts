@@ -92,11 +92,16 @@ export function useSpeechRecognition({
     recognitionRef.current.lang = language === 'ta-IN' ? 'ta-IN' : 'en-IN';
 
     try {
-      console.log("[PARTNER][ANDROID] STARTING");
+      console.log("[PARTNER][VOICE] recognition start");
       recognitionRef.current.start();
       isRecognitionRunningRef.current = true;
+      runningRef.current = true;
     } catch (error: any) {
-      if (error.name !== "InvalidStateError") {
+      if (error.name === "InvalidStateError") {
+        // It was already running. This resolves the Android deadlock.
+        isRecognitionRunningRef.current = true;
+        runningRef.current = true;
+      } else {
         console.error("[PARTNER][ANDROID] START ERROR:", error);
       }
     }
@@ -110,6 +115,7 @@ export function useSpeechRecognition({
     restartTimeoutRef.current = setTimeout(() => {
       if (
         conversationModeRef.current &&
+        modeRef.current !== 'OFF' &&
         !isSpeakingRef.current &&
         !isRecognitionRunningRef.current &&
         !stopRequestedRef.current
@@ -133,7 +139,7 @@ export function useSpeechRecognition({
     }
     
     try {
-      console.log("[PARTNER][ANDROID] STARTING");
+      console.log("[PARTNER][VOICE] recognition start");
       runningRef.current = true;
       recognitionRef.current.start();
       isRecognitionRunningRef.current = true;
@@ -180,6 +186,7 @@ export function useSpeechRecognition({
       return;
     }
     
+    const previousMode = modeRef.current;
     modeRef.current = newMode;
     retryCountRef.current = 0; // Reset retries on deliberate mode change
     
@@ -201,6 +208,11 @@ export function useSpeechRecognition({
     if (newMode === 'OFF') {
       stopRecognition();
     } else {
+      if (previousMode === 'OFF') {
+        isRecognitionRunningRef.current = false;
+        runningRef.current = false;
+      }
+      
       if (runningRef.current || isRecognitionRunningRef.current) {
         // Stop the current one, the 'onend' handler will pick up the new mode and restart
         try {
@@ -236,7 +248,7 @@ export function useSpeechRecognition({
     recognition.maxAlternatives = 1;
 
     recognition.onstart = () => {
-      console.log("[PARTNER][ANDROID] LISTENING");
+      console.log("[PARTNER][VOICE] recognition started");
       isRecognitionRunningRef.current = true;
       runningRef.current = true;
       if (modeRef.current === 'COMMAND') {
@@ -279,7 +291,7 @@ export function useSpeechRecognition({
         transcriptRef.current.interim = interim;
         setInterimTranscriptState(interim);
         if (final) {
-          console.log("[PARTNER][ANDROID] HEARD:", final);
+          console.log("[PARTNER][VOICE] final transcript:", final);
           transcriptRef.current.final += final;
           setFinalTranscriptState(transcriptRef.current.final);
           // Immediately process final transcript without waiting for silence
@@ -290,7 +302,7 @@ export function useSpeechRecognition({
 
     recognition.onerror = (event: any) => {
       const error = event.error;
-      console.error('[PARTNER][ANDROID] ERROR:', error);
+      console.error('[PARTNER][VOICE] recognition error:', error);
       isRecognitionRunningRef.current = false;
 
       if (error === 'no-speech') {
@@ -352,12 +364,13 @@ export function useSpeechRecognition({
     };
 
     recognition.onend = () => {
-      console.log("[PARTNER][ANDROID] STOPPED");
+      console.log("[PARTNER][VOICE] recognition ended");
       isRecognitionRunningRef.current = false;
       runningRef.current = false;
       
       if (
         conversationModeRef.current &&
+        modeRef.current !== 'OFF' &&
         !isSpeakingRef.current &&
         !stopRequestedRef.current
       ) {
