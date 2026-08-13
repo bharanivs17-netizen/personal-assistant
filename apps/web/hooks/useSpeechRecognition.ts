@@ -180,9 +180,11 @@ export function useSpeechRecognition({
   }, [clearSilenceTimeout]);
 
   const changeMode = useCallback((newMode: RecognitionMode) => {
-    // If we're already in this mode and running, just reset silence
-    if ((runningRef.current || isRecognitionRunningRef.current) && modeRef.current === newMode) {
-      if (newMode === 'COMMAND') resetSilenceTimeout();
+    // If we're already in this mode, just reset silence
+    if (modeRef.current === newMode) {
+      if (newMode === 'COMMAND' && (runningRef.current || isRecognitionRunningRef.current)) {
+        resetSilenceTimeout();
+      }
       return;
     }
     
@@ -213,12 +215,9 @@ export function useSpeechRecognition({
         runningRef.current = false;
       }
       
-      if (runningRef.current || isRecognitionRunningRef.current) {
-        // Stop the current one, the 'onend' handler will pick up the new mode and restart
-        try {
-          recognitionRef.current.stop();
-        } catch (e) {}
-      } else {
+      // DO NOT aggressively stop the native recognition engine just to change our internal mode.
+      // Stopping and restarting causes duplicate browser beeps on Android.
+      if (!runningRef.current && !isRecognitionRunningRef.current) {
         if (newMode === 'COMMAND' && conversationModeRef.current) {
           startListeningSafely();
         } else {
@@ -402,11 +401,10 @@ export function useSpeechRecognition({
 
   const commitCommand = useCallback(() => {
     // We are done gathering the command
-    // Don't turn OFF mode permanently, let processCommand handle stopping
+    // DO NOT explicitly stop the native recognition engine here, as it causes unnecessary Android beeps.
+    // The native engine with continuous=false will naturally pause when silence is detected,
+    // and our state machine will ignore audio while processing/speaking.
     stopRequestedRef.current = false;
-    try {
-      recognitionRef.current?.stop();
-    } catch {}
 
     const finalResult = transcriptRef.current.final.trim() + ' ' + transcriptRef.current.interim.trim();
     if (finalResult.trim()) {

@@ -527,7 +527,18 @@ export default function Home() {
     console.log("[PARTNER][VOICE] state:", state);
     if (state === AssistantState.READY) {
       startWakeListening();
-    } else if (state === AssistantState.LISTENING || state === AssistantState.CONTINUOUS_LISTENING || state === AssistantState.CONFIRMING) {
+    } else if (
+      state === AssistantState.LISTENING || 
+      state === AssistantState.CONTINUOUS_LISTENING || 
+      state === AssistantState.CONFIRMING ||
+      state === AssistantState.WAKE_DETECTED ||
+      state === AssistantState.PROCESSING ||
+      state === AssistantState.SPEAKING
+    ) {
+      // DO NOT call stopListening() here! Stopping during these transient states causes 
+      // the native Android Chrome SpeechRecognition engine to emit repetitive, loud beeps.
+      // We keep the engine in COMMAND mode and rely on `isSpeakingRef` and state checks 
+      // to ignore audio when we shouldn't be listening.
       startCommandListening();
     } else {
       stopListening();
@@ -582,7 +593,8 @@ export default function Home() {
   const handleOrbClick = useCallback(() => {
     setVoiceError(null);
     if (state === AssistantState.READY) {
-      stopListening();
+      // DO NOT call stopListening() here! It triggers an unnecessary native "Mic Off" beep.
+      // We rely on isSpeakingRef to ignore self-hearing while it says "Yes?".
       conversationModeRef.current = true;
       stopRequestedRef.current = false;
       setState(AssistantState.WAKE_DETECTED);
