@@ -1,17 +1,25 @@
 import { useState, useCallback, useRef } from 'react';
 import { ChatMessage } from '@partner/shared';
+import { getMemoryContextString } from '@/utils/memoryManager';
 
 interface UseChatProps {
   onChunk?: (chunk: string) => void;
   onComplete?: (fullText: string) => void;
   onError?: (error: Error) => void;
+  onToolCall?: (toolName: string, args: any) => Promise<any>;
 }
 
-export function useChat({ onChunk, onComplete, onError }: UseChatProps = {}) {
+export function useChat({ onChunk, onComplete, onError, onToolCall }: UseChatProps = {}) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   
-  const generateResponse = useCallback(async (text: string) => {
+  // 1. Cancellation Ref
+  const abortControllerRef = useRef<AbortController | null>(null);
+  
+  // 3. Simple Safe Cache (Max 50 items)
+  const responseCacheRef = useRef<Map<string, string>>(new Map());
+  
+  const generateResponse = useCallback(async (text: string, enableSearch: boolean = false) => {
     setIsGenerating(true);
     
     // Create the user message
@@ -33,24 +41,62 @@ export function useChat({ onChunk, onComplete, onError }: UseChatProps = {}) {
       content: '',
       timestamp: Date.now(),
     };
+    let stepCount = 0;
+    const MAX_TOOL_STEPS = 5;
     
-    setMessages(prev => [...prev, aiMsg]);
-    
+    // Create a local history array that we can append to during the loop
+    let currentHistory = [...messages];
+    let latestMessage = text;
+
     try {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
       const controller = new AbortController();
+      abortControllerRef.current = controller;
+
       const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
 
-      try {
-        console.log(`[PARTNER] Gemini request started`);
+      const cacheKey = enableSearch ? null : text.trim().toLowerCase();
+      if (cacheKey && responseCacheRef.current.has(cacheKey)) {
+         const cachedResponse = responseCacheRef.current.get(cacheKey)!;
+         console.log(`[PARTNER][PERF] Cache hit for "${text}"`);
+         
+         const aiMsgId = Date.now().toString();
+         setMessages(prev => [...prev, { id: Date.now().toString(), role: 'user', content: text } as ChatMessage, { id: aiMsgId, role: 'assistant', content: cachedResponse } as ChatMessage]);
+         
+         if (onChunk) onChunk(cachedResponse);
+         setIsGenerating(false);
+         if (onComplete) onComplete(cachedResponse);
+         return;
+      }
+
+      const reqStartTime = Date.now();
+      const aiMsgId = (Date.now() + 1).toString();
+
+      setMessages(prev => {
+        currentHistory = [...prev, { id: Date.now().toString(), role: 'user', content: text } as ChatMessage];
+        return [...currentHistory, { id: aiMsgId, role: 'assistant', content: '' } as ChatMessage];
+      });
+      
+      while (stepCount < MAX_TOOL_STEPS) {
+        stepCount++;
+        if (stepCount > 1) {
+           console.log(`[PARTNER][AGENT] Planning started (Step ${stepCount})`);
+        }
+
+        const trimmedHistory = currentHistory.slice(-6);
+
         const response = await fetch(`/api/chat`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            message: text,
-            // Exclude the newly added placeholder AI message when sending history
-            history: messages,
+            message: latestMessage,
+            history: trimmedHistory,
+            enableSearch,
+            memoryContext: getMemoryContextString()
           }),
           signal: controller.signal
         });
@@ -58,32 +104,27 @@ export function useChat({ onChunk, onComplete, onError }: UseChatProps = {}) {
         const data = await response.json();
         
         if (!response.ok || !data.success) {
-          console.log(`[PARTNER] Gemini error code:`, data.code || response.status);
-          let errMsg = `Server error: ${response.status}`;
-          
-          if (data.code === 'GEMINI_QUOTA_ERROR') {
-            errMsg = data.message || 'Gemini quota is currently exhausted. Local PARTNER commands are still available.';
-          } else if (data.code === 'GEMINI_MODEL_ERROR') {
-            errMsg = data.message || 'The configured Gemini model is unavailable. Please check the Gemini model configuration.';
-          } else if (data.code === 'GEMINI_AUTH_ERROR') {
-            errMsg = data.message || 'Gemini authentication failed. Please check the server API key.';
-          } else if (data.code === 'GEMINI_NETWORK_ERROR') {
-            errMsg = data.message || 'PARTNER could not connect to Gemini.';
-          } else if (data.message) {
-            errMsg = `API ERROR HTTP ${response.status}: ${data.message}`;
-          }
-          
-          throw new Error(errMsg);
+          throw new Error(data.message || `Server error: ${response.status}`);
         }
         
-        const responseText = data.text;
-        console.log(`[PARTNER] Gemini response received`);
+        const normalizeAIResponse = (res: any) => {
+          let text = '';
+          if (res && res.text) {
+            text = typeof res.text === 'string' ? res.text : String(res.text);
+          }
+          text = text.replace(/undefined/gi, '').replace(/null/gi, '').replace(/\[object Object\]/g, '').trim();
+          return { text };
+        };
 
-        if (!responseText || !responseText.trim()) {
-          throw new Error("Empty Gemini response");
+        const answer = normalizeAIResponse(data);
+        let toolCalls = data.toolCalls || [];
+        
+        if (!answer.text && toolCalls.length === 0) {
+          throw new Error("Sorry, I couldn't generate a response. Please try again.");
         }
+        
+        const responseText = answer.text || "Executing action...";
 
-        // Update the AI message content
         setMessages(prev => 
           prev.map(msg => 
             msg.id === aiMsgId 
@@ -92,17 +133,63 @@ export function useChat({ onChunk, onComplete, onError }: UseChatProps = {}) {
           )
         );
 
+        if (toolCalls.length > 0 && onToolCall) {
+           console.log("[PARTNER][AGENT] Tool selected:", toolCalls[0].name);
+           let toolResult = '';
+           try {
+              const startToolTime = Date.now();
+              console.log("[PARTNER][AGENT] Tool execution started");
+              
+              const resultObj = await onToolCall(toolCalls[0].name, toolCalls[0].args);
+              toolResult = JSON.stringify(resultObj || { success: true });
+              
+              console.log(`[PARTNER][AGENT] Tool execution completed: ${Date.now() - startToolTime} ms`);
+           } catch (e: any) {
+              console.log("[PARTNER][AGENT] Tool execution failed");
+              toolResult = JSON.stringify({ success: false, error: e.message || 'Tool failed' });
+           }
+           
+           currentHistory.push({ role: 'assistant', content: responseText, id: Date.now().toString() } as ChatMessage);
+           latestMessage = `Tool result for ${toolCalls[0].name}: ${toolResult}`;
+           
+           continue; 
+        }
+
+        if (!enableSearch && toolCalls.length === 0 && stepCount === 1) {
+           if (responseCacheRef.current.size >= 50) {
+              const firstKey = responseCacheRef.current.keys().next().value;
+              if (firstKey) responseCacheRef.current.delete(firstKey);
+           }
+           if (cacheKey) responseCacheRef.current.set(cacheKey, responseText);
+        }
+
         if (onChunk) onChunk(responseText);
         setIsGenerating(false);
+        
+        if (abortControllerRef.current === controller) {
+           abortControllerRef.current = null;
+        }
 
+        console.log(`[PARTNER][PERF] Response completed: ${Date.now() - reqStartTime} ms`);
+        console.log("[PARTNER][AGENT] Final response generated");
+        
         if (onComplete) {
           onComplete(responseText);
         }
-      } finally {
-        clearTimeout(timeoutId);
+        break; 
       }
       
+      if (stepCount >= MAX_TOOL_STEPS) {
+         throw new Error("Sorry, I couldn't complete that task in time.");
+      }
+      clearTimeout(timeoutId);
     } catch (err: any) {
+      if (err.name === 'AbortError') {
+         console.warn('[PARTNER] Request cancelled by newer command');
+         // DO NOT call onError or setIsGenerating(false) globally since a new request is taking over.
+         return;
+      }
+      
       const friendlyError = err instanceof Error ? err : new Error(String(err));
       // Log as a string to prevent Next.js dev overlay from capturing the Error object
       console.warn('[Partner] Chat request failed:', friendlyError.message);
@@ -125,6 +212,10 @@ export function useChat({ onChunk, onComplete, onError }: UseChatProps = {}) {
             : msg
         )
       );
+      
+      if (abortControllerRef.current) {
+         abortControllerRef.current = null;
+      }
       
       if (onError) {
         onError(finalError);

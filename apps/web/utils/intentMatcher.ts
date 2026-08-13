@@ -60,6 +60,21 @@ export type MatchResult = {
 } | null;
 
 /**
+ * Checks if a question asks for current/latest information
+ */
+export function isTimeSensitive(text: string): boolean {
+  const normalized = text.toLowerCase().trim();
+  const timeSensitiveRegexes = [
+    /\b(current|currently|right now|now|today|today's|latest|latest news|recent|recently|this week|this month|this year|present|as of now)\b/i,
+    /who is the current/i,
+    /what is the current/i,
+    /what happened today/i
+  ];
+  
+  return timeSensitiveRegexes.some(regex => regex.test(normalized));
+}
+
+/**
  * Fuzzy matches normalized text against offline knowledge
  */
 export function matchIntent(transcript: string): MatchResult {

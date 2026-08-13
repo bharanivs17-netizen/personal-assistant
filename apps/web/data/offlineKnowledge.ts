@@ -648,8 +648,7 @@ export const OFFLINE_KNOWLEDGE: OfflineIntent[] = [
         "what is minus",
         "divided by",
         "times",
-        "multiplied by",
-        "what is"
+        "multiplied by"
       ],
       "ta": [
         "கூட்டல்",

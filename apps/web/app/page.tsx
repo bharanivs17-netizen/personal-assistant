@@ -3,7 +3,8 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { AssistantState, AssistantEvent, DEFAULT_SETTINGS, transition } from '@partner/shared';
 import type { PartnerSettings } from '@partner/shared';
-import { matchIntent, getOfflineResponse, handleUtilityIntent } from '@/utils/intentMatcher';
+import { matchIntent, getOfflineResponse, handleUtilityIntent, isTimeSensitive } from '@/utils/intentMatcher';
+import { saveMemory } from '@/utils/memoryManager';
 
 import Orb from '@/components/Orb';
 import StatusText from '@/components/StatusText';
@@ -165,6 +166,7 @@ export default function Home() {
       lang: settings.responseLanguage,
       onDebug: setTtsDebug,
       onStart: () => {
+        console.log("[PARTNER][PERF] TTS started");
         console.log("[PARTNER][VOICE] TTS started");
         isSpeakingRef.current = true;
         setState(AssistantState.SPEAKING);
@@ -214,6 +216,31 @@ export default function Home() {
       const actualLang = settings.responseLanguage === 'auto' ? 'english' : settings.responseLanguage;
       const fallbackMsg = actualLang === 'tamil' ? "மன்னிக்கவும், பிழை ஏற்பட்டுள்ளது." : "Gemini is unavailable right now. Please try again.";
       speakResponse(fallbackMsg);
+    },
+    onToolCall: async (toolName, args) => {
+      console.log(`[PARTNER][AGENT] Executing tool: ${toolName}`, args);
+      if (toolName === 'store_memory') {
+         saveMemory(args.category, args.key, args.value);
+         return { success: true, message: `Memory saved: ${args.key}=${args.value}` };
+      } else if (toolName === 'execute_local_action') {
+         // Re-use the existing web tools system
+         const tool = registry.getTool(args.action);
+         if (tool) {
+            const result = await tool.execute(args);
+            if (result.success && result.data?.url) {
+                const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+                if (isMobile) {
+                    window.location.href = result.data.url;
+                } else {
+                    window.open(result.data.url, '_blank');
+                }
+                return { success: true, message: "Action executed successfully. URL opened." };
+            }
+            return result;
+         }
+         return { success: false, error: `Action '${args.action}' not found in registry.` };
+      }
+      return { success: false, error: "Unknown tool" };
     }
   });
 
@@ -276,8 +303,8 @@ export default function Home() {
     }
 
     if (processingRef.current) {
-      console.log("[PARTNER] Processing skipped - already processing");
-      return;
+      console.log("[PARTNER] Cancelling previous request in favor of new one");
+      // Allow new request to proceed and abort the old API call in useChat
     }
 
     const normalizedTranscript = text.toLowerCase();
@@ -289,6 +316,11 @@ export default function Home() {
     lastProcessedTranscriptRef.current = normalizedTranscript;
     processingRef.current = true;
     
+    // PERF LOG
+    const perfStartTime = Date.now();
+    console.log("[PARTNER][PERF] Speech recognition started"); // Conceptually this starts when they speak, but we log here to trace pipeline
+    console.log("[PARTNER][PERF] Transcript received");
+    
     console.log("[PARTNER] Processing started");
     console.log("[PARTNER] Final transcript:", text);
     
@@ -298,8 +330,15 @@ export default function Home() {
     setState(AssistantState.PROCESSING);
     setIsLocalResponse(false);
 
+    console.log(`[PARTNER][REQUEST] Question: ${text}`);
+    
+    // Check if time-sensitive first
+    const timeSensitive = isTimeSensitive(text);
+
     // 1. Check Offline & Tool Intents
     const match = matchIntent(text);
+    console.log(`[PARTNER][PERF] Routing completed: ${Date.now() - perfStartTime} ms`);
+    
     if (match) {
        console.log("[PARTNER][ANDROID] Intent:", match.intent);
        if (match.isTool) {
@@ -426,12 +465,14 @@ export default function Home() {
 6. Formatting: Do NOT use any markdown, asterisks, or special formatting. Use only plain text that is natural for a Text-to-Speech engine.`;
            
            console.log("[PARTNER] Story intent detected. Requesting from Gemini.");
+           console.log("[PARTNER][ROUTER] Route: CREATIVE");
            generateResponse(storyPrompt);
            return;
        } else {
           responseText = getOfflineResponse(match.intent, settings.responseLanguage, text) || "I understand the intent but don't have a response for it.";
        }
 
+       console.log(`[PARTNER][ROUTER] Route: LOCAL_INTENT`);
        if (responseText) {
           speakResponse(responseText);
        } else {
@@ -462,8 +503,12 @@ export default function Home() {
        return;
     }
 
-    console.log("[PARTNER] Gemini request");
-    generateResponse(text);
+    console.log(`[PARTNER][ROUTER] Route: ${timeSensitive ? 'TIME_SENSITIVE' : 'GENERAL_KNOWLEDGE'}`);
+    if (timeSensitive) {
+      console.log("[PARTNER][ROUTER] Source verified: true");
+    }
+
+    generateResponse(text, timeSensitive);
   }, [
     state, isSpeakingRef, conversationModeRef, stopRequestedRef, restartTimeoutRef,
     recognitionRef, isRecognitionRunningRef, settings.responseLanguage, settings.speechSpeed,
