@@ -18,6 +18,8 @@ import { registry, registerWebTools } from '@partner/tools';
 
 type ChatMessage = { role: 'user' | 'partner', text: string };
 
+const DEBUG_VOICE_MODE = true; // Set to false to restore wake-word mode
+
 export default function Home() {
   const [state, setState] = useState<AssistantState>(AssistantState.STOPPED);
   const [settings, setSettings] = useState<PartnerSettings>(DEFAULT_SETTINGS);
@@ -141,12 +143,12 @@ export default function Home() {
       lang: settings.responseLanguage,
       onDebug: setTtsDebug,
       onStart: () => {
-        console.log("[PARTNER] TTS started");
+        console.log("[PARTNER][ANDROID] TTS START");
         isSpeakingRef.current = true;
         setState(AssistantState.SPEAKING);
       },
       onEnd: () => {
-        console.log("[PARTNER] TTS finished");
+        console.log("[PARTNER][ANDROID] TTS END");
         isSpeakingRef.current = false;
         if (keepListening || (conversationModeRef.current && !stopRequestedRef.current)) {
           setState(nextState === AssistantState.READY ? AssistantState.CONTINUOUS_LISTENING : nextState);
@@ -276,10 +278,10 @@ export default function Home() {
     // 1. Check Offline & Tool Intents
     const match = matchIntent(text);
     if (match) {
-       console.log("[PARTNER] Intent:", match.intent);
+       console.log("[PARTNER][ANDROID] Intent:", match.intent);
        if (match.isTool) {
-           console.log("[PARTNER] Tool:", match.toolName);
-           console.log("[PARTNER] Tool args:", match.toolArgs);
+           console.log("[PARTNER][ANDROID] Tool:", match.toolName);
+           console.log("[PARTNER][ANDROID] Tool args:", match.toolArgs);
        }
        setIsLocalResponse(true);
        
@@ -421,7 +423,14 @@ export default function Home() {
       const newStream = await startMicrophone();
       if (newStream) {
         setIsListening(true);
-        handleTransition(AssistantEvent.ENABLE);
+        console.log("[PARTNER][ANDROID] Listening toggle: ON");
+        if (DEBUG_VOICE_MODE) {
+           console.log("[PARTNER][ANDROID] DEBUG_VOICE_MODE enabled, bypassing wake word");
+           conversationModeRef.current = true;
+           setState(AssistantState.CONTINUOUS_LISTENING);
+        } else {
+           handleTransition(AssistantEvent.ENABLE);
+        }
       } else {
         setIsListening(false);
         handleTransition(AssistantEvent.MIC_DENIED);
@@ -551,6 +560,11 @@ export default function Home() {
           {/* Ongoing Transcript / Typing indicator */}
           {(finalTranscript || interimTranscript || state === AssistantState.PROCESSING) && (
             <div style={{ alignSelf: 'flex-end', opacity: 0.7, padding: '10px 16px', fontSize: '0.9rem' }}>
+               {DEBUG_VOICE_MODE && (finalTranscript || interimTranscript) && (
+                 <div style={{ color: '#00e68a', marginBottom: '4px', fontWeight: 'bold' }}>
+                   Heard:
+                 </div>
+               )}
                <span className="user-text">
                   {finalTranscript} <span>{interimTranscript}</span>
                </span>

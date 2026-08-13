@@ -92,10 +92,12 @@ export function useSpeechRecognition({
     recognitionRef.current.lang = language === 'ta-IN' ? 'ta-IN' : 'en-IN';
 
     try {
+      console.log("[PARTNER][ANDROID] Recognition START");
       recognitionRef.current.start();
+      isRecognitionRunningRef.current = true;
     } catch (error: any) {
       if (error.name !== "InvalidStateError") {
-        console.error(error);
+        console.error("[PARTNER][ANDROID] START ERROR:", error);
       }
     }
   }, [language]);
@@ -122,7 +124,7 @@ export function useSpeechRecognition({
     if (!recognitionRef.current || mode === 'OFF') return;
     
     // Prevent duplicate start
-    if (isRecognitionRunningRef.current || runningRef.current) {
+    if (isRecognitionRunningRef.current || runningRef.current || isSpeakingRef.current || stopRequestedRef.current) {
       return;
     }
     
@@ -131,13 +133,16 @@ export function useSpeechRecognition({
     }
     
     try {
+      console.log("[PARTNER][ANDROID] Recognition START");
       runningRef.current = true;
       recognitionRef.current.start();
+      isRecognitionRunningRef.current = true;
     } catch (err: any) {
       runningRef.current = false;
       console.debug('[Partner Voice] Failed to start recognition:', err);
       if (err.name === 'InvalidStateError') {
          runningRef.current = true; // it is already running
+         isRecognitionRunningRef.current = true;
       }
     }
   }, [language]);
@@ -213,7 +218,12 @@ export function useSpeechRecognition({
 
   // Initialize SpeechRecognition once
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    console.log("[PARTNER][ANDROID] Browser:", navigator.userAgent);
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    console.log("[PARTNER][ANDROID] SpeechRecognition supported:", !!SpeechRecognition);
+    
     if (!SpeechRecognition) {
       setIsSupported(false);
       return;
@@ -223,9 +233,10 @@ export function useSpeechRecognition({
     // PER USER REQUIREMENT: DO NOT USE continuous=true
     recognition.continuous = false;
     recognition.interimResults = true;
+    recognition.maxAlternatives = 1;
 
     recognition.onstart = () => {
-      console.log("[PARTNER] Recognition started");
+      console.log("[PARTNER][ANDROID] Recognition STARTED");
       isRecognitionRunningRef.current = true;
       runningRef.current = true;
       if (modeRef.current === 'COMMAND') {
@@ -234,6 +245,8 @@ export function useSpeechRecognition({
     };
 
     recognition.onresult = (event: any) => {
+      console.log("[PARTNER][ANDROID] Recognition RESULT", event);
+
       // PREVENT SELF-HEARING
       if (isSpeakingRef.current) {
         return;
@@ -259,6 +272,7 @@ export function useSpeechRecognition({
         const fullTranscript = final + interim;
         const normalized = fullTranscript.toLowerCase().trim().replace(/[.,!?;:]/g, '');
         if (normalized.includes('hey partner') || normalized.includes('hello partner') || normalized.includes('hi partner') || normalized === 'partner') {
+          console.log("[PARTNER][ANDROID] Wake word detected:", normalized);
           // Immediately stop and trigger callback
           changeMode('OFF');
           callbacksRef.current.onWakeWordDetected();
@@ -267,6 +281,7 @@ export function useSpeechRecognition({
         transcriptRef.current.interim = interim;
         setInterimTranscriptState(interim);
         if (final) {
+          console.log("[PARTNER][ANDROID] Transcript:", final);
           transcriptRef.current.final += final;
           setFinalTranscriptState(transcriptRef.current.final);
           // Immediately process final transcript without waiting for silence
@@ -277,7 +292,8 @@ export function useSpeechRecognition({
 
     recognition.onerror = (event: any) => {
       const error = event.error;
-      console.debug('[Partner Voice] Error:', error);
+      console.error('[PARTNER][ANDROID] Recognition ERROR:', error);
+      isRecognitionRunningRef.current = false;
 
       if (error === 'no-speech') {
         // no-speech is a normal condition. Let onend handle the restart.
@@ -338,7 +354,7 @@ export function useSpeechRecognition({
     };
 
     recognition.onend = () => {
-      console.log("[PARTNER] Recognition stopped");
+      console.log("[PARTNER][ANDROID] Recognition END");
       isRecognitionRunningRef.current = false;
       runningRef.current = false;
       
@@ -350,7 +366,7 @@ export function useSpeechRecognition({
         scheduleSafeRestart();
       } else if (modeRef.current === 'WAKE' || (modeRef.current === 'COMMAND' && !conversationModeRef.current)) {
         // Keep existing behavior for wake word waiting if not in conversation mode
-        if (!restartTimeoutRef.current) {
+        if (!restartTimeoutRef.current && !isSpeakingRef.current && !stopRequestedRef.current) {
           scheduleRestart(100);
         }
       }
