@@ -92,7 +92,7 @@ export function useSpeechRecognition({
     recognitionRef.current.lang = language === 'ta-IN' ? 'ta-IN' : 'en-IN';
 
     try {
-      console.log("[PARTNER][ANDROID] Recognition START");
+      console.log("[PARTNER][ANDROID] STARTING");
       recognitionRef.current.start();
       isRecognitionRunningRef.current = true;
     } catch (error: any) {
@@ -133,7 +133,7 @@ export function useSpeechRecognition({
     }
     
     try {
-      console.log("[PARTNER][ANDROID] Recognition START");
+      console.log("[PARTNER][ANDROID] STARTING");
       runningRef.current = true;
       recognitionRef.current.start();
       isRecognitionRunningRef.current = true;
@@ -236,7 +236,7 @@ export function useSpeechRecognition({
     recognition.maxAlternatives = 1;
 
     recognition.onstart = () => {
-      console.log("[PARTNER][ANDROID] Recognition STARTED");
+      console.log("[PARTNER][ANDROID] LISTENING");
       isRecognitionRunningRef.current = true;
       runningRef.current = true;
       if (modeRef.current === 'COMMAND') {
@@ -245,8 +245,6 @@ export function useSpeechRecognition({
     };
 
     recognition.onresult = (event: any) => {
-      console.log("[PARTNER][ANDROID] Recognition RESULT", event);
-
       // PREVENT SELF-HEARING
       if (isSpeakingRef.current) {
         return;
@@ -281,7 +279,7 @@ export function useSpeechRecognition({
         transcriptRef.current.interim = interim;
         setInterimTranscriptState(interim);
         if (final) {
-          console.log("[PARTNER][ANDROID] Transcript:", final);
+          console.log("[PARTNER][ANDROID] HEARD:", final);
           transcriptRef.current.final += final;
           setFinalTranscriptState(transcriptRef.current.final);
           // Immediately process final transcript without waiting for silence
@@ -292,7 +290,7 @@ export function useSpeechRecognition({
 
     recognition.onerror = (event: any) => {
       const error = event.error;
-      console.error('[PARTNER][ANDROID] Recognition ERROR:', error);
+      console.error('[PARTNER][ANDROID] ERROR:', error);
       isRecognitionRunningRef.current = false;
 
       if (error === 'no-speech') {
@@ -354,7 +352,7 @@ export function useSpeechRecognition({
     };
 
     recognition.onend = () => {
-      console.log("[PARTNER][ANDROID] Recognition END");
+      console.log("[PARTNER][ANDROID] STOPPED");
       isRecognitionRunningRef.current = false;
       runningRef.current = false;
       

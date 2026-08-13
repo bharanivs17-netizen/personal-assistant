@@ -2,6 +2,9 @@
 import { useState, useEffect } from 'react';
 import type { PartnerSettings } from '@partner/shared';
 
+import type { TTSDebugInfo } from '@partner/voice';
+import VoiceSelector from './VoiceSelector';
+
 interface SettingsProps {
   isOpen: boolean;
   onClose: () => void;
@@ -9,6 +12,8 @@ interface SettingsProps {
   onSettingsChange: (settings: PartnerSettings) => void;
   permissionStatus: string;
   isListening: boolean;
+  ttsDebug?: TTSDebugInfo | null;
+  onTestTTS?: (lang: 'en' | 'ta') => void;
 }
 
 export default function Settings({
@@ -18,6 +23,8 @@ export default function Settings({
   onSettingsChange,
   permissionStatus,
   isListening,
+  ttsDebug,
+  onTestTTS,
 }: SettingsProps) {
   const displayPermission = 
     permissionStatus === 'granted' ? 'Granted' : 
@@ -27,6 +34,7 @@ export default function Settings({
   const [geminiStatus, setGeminiStatus] = useState('CHECKING...');
   const [geminiModel, setGeminiModel] = useState('...');
   const [isTestingGemini, setIsTestingGemini] = useState(false);
+  const [isVoiceSelectorOpen, setIsVoiceSelectorOpen] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -173,16 +181,6 @@ export default function Settings({
               <div
                 className={`toggle-switch ${settings.voiceResponse ? 'on' : ''}`}
                 onClick={() => onSettingsChange({ ...settings, voiceResponse: !settings.voiceResponse })}
-              >
-                <div className="toggle-switch-knob" />
-              </div>
-            </div>
-
-            <div className="settings-row">
-              <span className="settings-row-label">TTS Debug Panel</span>
-              <div
-                className={`toggle-switch ${settings.showTTSDebug ? 'on' : ''}`}
-                onClick={() => onSettingsChange({ ...settings, showTTSDebug: !settings.showTTSDebug })}
               >
                 <div className="toggle-switch-knob" />
               </div>
@@ -341,9 +339,18 @@ export default function Settings({
           {/* Voice */}
           <div className="settings-group">
             <span className="settings-group-title">Voice</span>
-            <div className="settings-row">
+            <div 
+              className="settings-row" 
+              style={{ cursor: 'pointer' }}
+              onClick={() => setIsVoiceSelectorOpen(true)}
+              role="button"
+              tabIndex={0}
+              aria-label="Open voice selection"
+            >
               <span className="settings-row-label">Voice selection</span>
-              <span className="settings-row-value">Default</span>
+              <span className="settings-row-value accent">
+                {settings.voiceId === 'default' ? 'Default' : 'Custom Selected'} ›
+              </span>
             </div>
           </div>
 
@@ -446,8 +453,57 @@ export default function Settings({
               </span>
             </div>
           </div>
+
+          {/* Developer Mode */}
+          <div className="dev-mode-group">
+            <div className="settings-group">
+              <span className="settings-group-title" style={{ color: 'var(--color-warning)' }}>Developer Mode</span>
+              <div className="settings-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '12px', background: 'rgba(0,0,0,0.2)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span className="settings-row-label">Voice Debug</span>
+                  <div
+                    className={`toggle-switch ${settings.showTTSDebug ? 'on' : ''}`}
+                    onClick={() => onSettingsChange({ ...settings, showTTSDebug: !settings.showTTSDebug })}
+                  >
+                    <div className="toggle-switch-knob" />
+                  </div>
+                </div>
+
+                {settings.showTTSDebug && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '8px' }}>
+                    <div className="dev-log">
+                      <strong>Language:</strong> {ttsDebug?.language || '-'}
+                    </div>
+                    <div className="dev-log">
+                      <strong>Voice:</strong> {ttsDebug?.voiceName || '-'}
+                    </div>
+                    <div className="dev-log">
+                      <strong>Status:</strong> {ttsDebug?.status || '-'}
+                    </div>
+                    <div className={`dev-log ${ttsDebug?.status === 'ERROR' ? 'dev-error' : ''}`}>
+                      <strong>Error:</strong> {ttsDebug?.error || '-'}
+                    </div>
+                    <div className="dev-log">
+                      <strong>Tamil Voices:</strong> {ttsDebug ? (ttsDebug.hasTamilVoice ? 'YES' : 'NO') : '-'}
+                    </div>
+                    <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
+                      <button className="btn-secondary" style={{ flex: 1 }} onClick={() => onTestTTS?.('ta')}>Test Tamil</button>
+                      <button className="btn-secondary" style={{ flex: 1 }} onClick={() => onTestTTS?.('en')}>Test English</button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
       </aside>
+
+      <VoiceSelector
+        isOpen={isVoiceSelectorOpen}
+        onClose={() => setIsVoiceSelectorOpen(false)}
+        settings={settings}
+        onSettingsChange={onSettingsChange}
+      />
     </>
   );
 }

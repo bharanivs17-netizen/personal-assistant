@@ -7,7 +7,8 @@ export async function POST(req: Request) {
   try {
     const { message } = await req.json() as { message: string };
 
-    const apiKey = process.env.GOOGLE_API_KEY;
+    let apiKey = process.env.GOOGLE_API_KEY || '';
+    apiKey = apiKey.replace(/^["']|["']$/g, '');
     if (!apiKey || apiKey === 'YOUR_NEW_API_KEY_HERE') {
       return NextResponse.json({ success: false, code: 'GEMINI_NOT_CONFIGURED', message: 'Gemini API key is not configured.' }, { status: 500 });
     }

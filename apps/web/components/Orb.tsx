@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useEffect, useCallback } from 'react';
+import { useRef, useEffect, useCallback, useState } from 'react';
 import { AssistantState } from '@partner/shared';
 
 interface OrbProps {
@@ -22,6 +22,24 @@ export default function Orb({ state, audioLevel = 0, onClick }: OrbProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animRef = useRef<number>(0);
   const timeRef = useRef<number>(0);
+  const [reducedMotion, setReducedMotion] = useState(false);
+
+  useEffect(() => {
+    // Check for user preference for reduced motion
+    const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+    setReducedMotion(mediaQuery.matches);
+    const handler = (e: MediaQueryListEvent) => setReducedMotion(e.matches);
+    
+    // Modern approach using addEventListener
+    if (mediaQuery.addEventListener) {
+      mediaQuery.addEventListener('change', handler);
+      return () => mediaQuery.removeEventListener('change', handler);
+    } else {
+      // Fallback for older browsers
+      mediaQuery.addListener(handler);
+      return () => mediaQuery.removeListener(handler);
+    }
+  }, []);
 
   const isIdle = [
     AssistantState.READY,
@@ -30,8 +48,9 @@ export default function Orb({ state, audioLevel = 0, onClick }: OrbProps) {
     AssistantState.PERMISSION_REQUIRED,
     AssistantState.NO_NETWORK,
   ].includes(state);
-  const isListening = state === AssistantState.LISTENING || state === AssistantState.WAKE_DETECTED;
-  const isProcessing = state === AssistantState.PROCESSING;
+  const isListening = state === AssistantState.LISTENING || state === AssistantState.CONTINUOUS_LISTENING;
+  const isWakeDetected = state === AssistantState.WAKE_DETECTED;
+  const isProcessing = state === AssistantState.PROCESSING || state === AssistantState.CONFIRMING;
   const isSpeaking = state === AssistantState.SPEAKING;
   const isError = state === AssistantState.ERROR;
 
@@ -40,184 +59,195 @@ export default function Orb({ state, audioLevel = 0, onClick }: OrbProps) {
       const cx = width / 2;
       const cy = height / 2;
       const dpr = window.devicePixelRatio || 1;
-      const baseRadius = Math.min(width, height) * 0.22;
-
+      
+      // Base radius calculation. Using 0.12 so 4x radius (0.48) fits perfectly in the canvas.
+      const baseRadius = Math.min(width, height) * 0.12; 
+      
+      // Smooth out audio level
+      const smoothedAudio = Math.min(audioLevel, 1.0);
+      
       ctx.clearRect(0, 0, width, height);
 
-      // ── Outer glow ──
-      const glowRadius = baseRadius * 2.5;
-      const glowGrad = ctx.createRadialGradient(cx, cy, baseRadius * 0.5, cx, cy, glowRadius);
+      // Animation speeds based on accessibility
+      const speedMult = reducedMotion ? 0 : 1.0;
+      const time = t * speedMult;
+
+      // Base states
+      const breathe = reducedMotion ? 0 : Math.sin(time * 1.0) * 0.02; // Very slow breathing, tiny scale variation
+      
+      // Determine target colors
+      let coreColor = { r: 255, g: 255, b: 255 };
+      let glowColor = { r: 210, g: 240, b: 255 };
+      let intensity = 1.0;
+      let scale = 1.0 + breathe;
 
       if (isError) {
-        const errPulse = 0.08 + Math.sin(t * 3) * 0.04;
-        glowGrad.addColorStop(0, `rgba(255, 68, 102, ${errPulse})`);
-        glowGrad.addColorStop(1, 'rgba(255, 68, 102, 0)');
+        // Brief subtle visual disturbance, soft brightness change, NO red flashing
+        glowColor = { r: 180, g: 200, b: 220 };
+        intensity = 0.7 + (Math.sin(time * 10) * 0.1); 
+        scale = 0.98;
+      } else if (isWakeDetected) {
+        // Smooth brightness increase, one elegant outward ripple
+        coreColor = { r: 240, g: 255, b: 255 };
+        glowColor = { r: 100, g: 220, b: 255 };
+        intensity = 1.3;
+        scale = 1.05;
       } else if (isListening) {
-        const listenGlow = 0.1 + audioLevel * 0.15;
-        glowGrad.addColorStop(0, `rgba(0, 212, 255, ${listenGlow})`);
-        glowGrad.addColorStop(1, 'rgba(0, 212, 255, 0)');
+        coreColor = { r: 230, g: 250, b: 255 };
+        glowColor = { r: 56, g: 189, b: 248 };
+        intensity = 1.2 + smoothedAudio * 0.5;
+        scale = 1.02 + smoothedAudio * 0.05;
       } else if (isProcessing) {
-        const procGlow = 0.08 + Math.sin(t * 2) * 0.05;
-        glowGrad.addColorStop(0, `rgba(123, 97, 255, ${procGlow})`);
-        glowGrad.addColorStop(1, 'rgba(123, 97, 255, 0)');
+        coreColor = { r: 245, g: 245, b: 255 };
+        glowColor = { r: 180, g: 180, b: 255 };
+        intensity = 1.1 + (Math.sin(time * 1.5) * 0.1);
+        scale = 1.02;
       } else if (isSpeaking) {
-        const speakGlow = 0.08 + audioLevel * 0.12;
-        glowGrad.addColorStop(0, `rgba(0, 230, 138, ${speakGlow})`);
-        glowGrad.addColorStop(1, 'rgba(0, 230, 138, 0)');
-      } else {
-        const breathe = 0.06 + Math.sin(t * 0.8) * 0.03;
-        glowGrad.addColorStop(0, `rgba(0, 212, 255, ${breathe})`);
-        glowGrad.addColorStop(1, 'rgba(0, 212, 255, 0)');
+        coreColor = { r: 240, g: 255, b: 250 };
+        glowColor = { r: 56, g: 189, b: 248 };
+        intensity = 1.2 + smoothedAudio * 0.6;
+        scale = 1.0 + smoothedAudio * 0.08;
       }
 
-      ctx.fillStyle = glowGrad;
-      ctx.fillRect(0, 0, width, height);
-
-      // ── Orbital rings (processing state) ──
-      if (isProcessing) {
-        for (let i = 0; i < 3; i++) {
-          const ringRadius = baseRadius * (1.3 + i * 0.2);
-          const rotationSpeed = (i % 2 === 0 ? 1 : -1) * (1.5 + i * 0.5);
-          const angle = t * rotationSpeed + (i * Math.PI) / 3;
-
-          ctx.save();
-          ctx.translate(cx, cy);
-          ctx.rotate(angle);
-          ctx.beginPath();
-          ctx.ellipse(0, 0, ringRadius, ringRadius * 0.35, 0, 0, Math.PI * 2);
-          ctx.strokeStyle = `rgba(123, 97, 255, ${0.25 - i * 0.06})`;
-          ctx.lineWidth = 1.5 / dpr;
-          ctx.stroke();
-          ctx.restore();
-        }
+      if (reducedMotion) {
+        scale = 1.0;
+        intensity = Math.min(intensity, 1.2);
       }
 
-      // ── Listening rings (audio-reactive) ──
-      if (isListening) {
-        const ringCount = 3;
-        for (let i = 0; i < ringCount; i++) {
-          const expansion = audioLevel * 0.3;
-          const ringRadius = baseRadius * (1.15 + i * 0.18 + expansion);
-          const alpha = 0.2 - i * 0.05 + audioLevel * 0.1;
-
-          ctx.beginPath();
-          ctx.arc(cx, cy, ringRadius, 0, Math.PI * 2);
-          ctx.strokeStyle = `rgba(0, 212, 255, ${Math.max(0.05, alpha)})`;
-          ctx.lineWidth = (2 - i * 0.4) / dpr;
-          ctx.stroke();
-        }
-      }
-
-      // ── Speaking pulse rings ──
-      if (isSpeaking) {
-        const pulseCount = 2;
-        for (let i = 0; i < pulseCount; i++) {
-          const pulse = audioLevel * 0.25;
-          const ringRadius = baseRadius * (1.1 + i * 0.2 + pulse);
-
-          ctx.beginPath();
-          ctx.arc(cx, cy, ringRadius, 0, Math.PI * 2);
-          ctx.strokeStyle = `rgba(0, 230, 138, ${0.2 - i * 0.07 + audioLevel * 0.08})`;
-          ctx.lineWidth = (1.5 - i * 0.3) / dpr;
-          ctx.stroke();
-        }
-      }
-
-      // ── Core orb ──
-      const breatheScale = isIdle ? 1 + Math.sin(t * 0.8) * 0.03 : 1;
-      const listenScale = isListening ? 1 + audioLevel * 0.08 : 1;
-      const speakScale = isSpeaking ? 1 + audioLevel * 0.06 : 1;
-      const scale = breatheScale * listenScale * speakScale;
       const orbRadius = baseRadius * scale;
 
-      // Core gradient
+      // ── LAYER 5: OUTER FIELD (extremely soft blurred light) ──
+      const outerRadius = orbRadius * 4;
+      const outerGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, outerRadius);
+      const outerAlpha = reducedMotion ? 0.05 : 0.08 * intensity;
+      outerGrad.addColorStop(0, `rgba(${glowColor.r}, ${glowColor.g}, ${glowColor.b}, ${outerAlpha})`);
+      outerGrad.addColorStop(0.5, `rgba(${glowColor.r}, ${glowColor.g}, ${glowColor.b}, ${outerAlpha * 0.3})`);
+      outerGrad.addColorStop(1, `rgba(${glowColor.r}, ${glowColor.g}, ${glowColor.b}, 0)`);
+      
+      ctx.fillStyle = outerGrad;
+      ctx.beginPath();
+      ctx.arc(cx, cy, outerRadius, 0, Math.PI * 2);
+      ctx.fill();
+
+      // ── LAYER 4: RING 3 (very subtle atmospheric glow) ──
+      const atmRadius = orbRadius * 2.2;
+      const atmGrad = ctx.createRadialGradient(cx, cy, orbRadius * 0.5, cx, cy, atmRadius);
+      const atmAlpha = 0.15 * intensity;
+      atmGrad.addColorStop(0, `rgba(${glowColor.r}, ${glowColor.g}, ${glowColor.b}, ${atmAlpha})`);
+      atmGrad.addColorStop(1, `rgba(${glowColor.r}, ${glowColor.g}, ${glowColor.b}, 0)`);
+      
+      ctx.fillStyle = atmGrad;
+      ctx.beginPath();
+      ctx.arc(cx, cy, atmRadius, 0, Math.PI * 2);
+      ctx.fill();
+
+      // ── WAVE RINGS (Listening state soft outward waves, or Wake single ripple) ──
+      if ((isListening || isWakeDetected) && !reducedMotion) {
+        const waveCount = isWakeDetected ? 1 : 2;
+        const speed = isWakeDetected ? 2.5 : 1.2;
+        for(let i=0; i<waveCount; i++) {
+            const waveOffset = (time * speed + i * Math.PI) % (Math.PI * 2);
+            const waveScale = 1 + (waveOffset / (Math.PI * 2));
+            const waveAlpha = (1 - (waveOffset / (Math.PI * 2))) * (isWakeDetected ? 0.4 : 0.2) * intensity;
+            
+            ctx.beginPath();
+            ctx.arc(cx, cy, orbRadius * waveScale * 1.5, 0, Math.PI * 2);
+            ctx.strokeStyle = `rgba(${glowColor.r}, ${glowColor.g}, ${glowColor.b}, ${waveAlpha})`;
+            ctx.lineWidth = 1.5 / dpr;
+            ctx.stroke();
+        }
+      }
+
+      // ── ROTATING LIGHT (Thinking state) ──
+      if (isProcessing && !reducedMotion) {
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.rotate(time * 0.8);
+        
+        const procGrad = ctx.createLinearGradient(-orbRadius*1.5, -orbRadius*1.5, orbRadius*1.5, orbRadius*1.5);
+        procGrad.addColorStop(0, `rgba(255, 255, 255, 0)`);
+        procGrad.addColorStop(0.5, `rgba(255, 255, 255, 0.4)`);
+        procGrad.addColorStop(1, `rgba(255, 255, 255, 0)`);
+        
+        ctx.beginPath();
+        ctx.arc(0, 0, orbRadius * 1.3, 0, Math.PI * 2);
+        ctx.strokeStyle = procGrad;
+        ctx.lineWidth = 1.5 / dpr;
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      // ── LAYER 3: RING 2 (thin translucent glass ring) ──
+      ctx.beginPath();
+      ctx.arc(cx, cy, orbRadius * 1.1, 0, Math.PI * 2);
+      ctx.strokeStyle = `rgba(255, 255, 255, ${0.15 * intensity})`;
+      ctx.lineWidth = 1 / dpr;
+      ctx.stroke();
+      
+      const glassGrad = ctx.createRadialGradient(cx, cy, orbRadius * 0.8, cx, cy, orbRadius * 1.1);
+      glassGrad.addColorStop(0, `rgba(255, 255, 255, 0)`);
+      glassGrad.addColorStop(1, `rgba(255, 255, 255, ${0.05 * intensity})`);
+      ctx.fillStyle = glassGrad;
+      ctx.fill();
+
+      // ── LAYER 2: RING 1 (soft inner light ring) ──
+      ctx.beginPath();
+      ctx.arc(cx, cy, orbRadius * 0.95, 0, Math.PI * 2);
+      const innerLightGrad = ctx.createRadialGradient(cx, cy, orbRadius * 0.5, cx, cy, orbRadius);
+      innerLightGrad.addColorStop(0, `rgba(255, 255, 255, 0)`);
+      innerLightGrad.addColorStop(1, `rgba(255, 255, 255, ${0.4 * intensity})`);
+      ctx.fillStyle = innerLightGrad;
+      ctx.fill();
+
+      // ── LAYER 1: CENTER (glowing AI core) ──
       const coreGrad = ctx.createRadialGradient(
-        cx - orbRadius * 0.2,
-        cy - orbRadius * 0.2,
+        cx - orbRadius * 0.3,
+        cy - orbRadius * 0.3,
         0,
         cx,
         cy,
-        orbRadius
+        orbRadius * 0.95
       );
-
-      if (isError) {
-        coreGrad.addColorStop(0, 'rgba(255, 100, 130, 0.9)');
-        coreGrad.addColorStop(0.7, 'rgba(200, 50, 80, 0.6)');
-        coreGrad.addColorStop(1, 'rgba(150, 30, 50, 0.3)');
-      } else if (isListening) {
-        coreGrad.addColorStop(0, 'rgba(0, 230, 255, 0.85)');
-        coreGrad.addColorStop(0.6, 'rgba(0, 180, 220, 0.5)');
-        coreGrad.addColorStop(1, 'rgba(0, 120, 180, 0.2)');
-      } else if (isProcessing) {
-        coreGrad.addColorStop(0, 'rgba(140, 120, 255, 0.85)');
-        coreGrad.addColorStop(0.6, 'rgba(100, 80, 220, 0.5)');
-        coreGrad.addColorStop(1, 'rgba(70, 50, 180, 0.2)');
-      } else if (isSpeaking) {
-        coreGrad.addColorStop(0, 'rgba(0, 240, 150, 0.85)');
-        coreGrad.addColorStop(0.6, 'rgba(0, 200, 120, 0.5)');
-        coreGrad.addColorStop(1, 'rgba(0, 150, 90, 0.2)');
-      } else {
-        coreGrad.addColorStop(0, 'rgba(0, 220, 255, 0.7)');
-        coreGrad.addColorStop(0.6, 'rgba(0, 160, 200, 0.35)');
-        coreGrad.addColorStop(1, 'rgba(0, 100, 150, 0.1)');
-      }
+      
+      coreGrad.addColorStop(0, `rgba(255, 255, 255, ${0.95 * intensity})`);
+      coreGrad.addColorStop(0.4, `rgba(${coreColor.r}, ${coreColor.g}, ${coreColor.b}, ${0.8 * intensity})`);
+      coreGrad.addColorStop(1, `rgba(${coreColor.r - 20}, ${coreColor.g - 20}, ${coreColor.b - 10}, ${0.4 * intensity})`);
 
       ctx.beginPath();
-      ctx.arc(cx, cy, orbRadius, 0, Math.PI * 2);
+      ctx.arc(cx, cy, orbRadius * 0.95, 0, Math.PI * 2);
       ctx.fillStyle = coreGrad;
+      
+      // Shadow for depth
+      ctx.shadowColor = `rgba(${glowColor.r}, ${glowColor.g}, ${glowColor.b}, ${0.2 * intensity})`;
+      ctx.shadowBlur = orbRadius * 0.5;
+      ctx.shadowOffsetX = 0;
+      ctx.shadowOffsetY = orbRadius * 0.1;
+      
       ctx.fill();
+      
+      // Reset shadow
+      ctx.shadowColor = 'transparent';
+      ctx.shadowBlur = 0;
 
-      // Inner highlight
-      const highlightGrad = ctx.createRadialGradient(
-        cx - orbRadius * 0.25,
-        cy - orbRadius * 0.3,
+      // Surface Specular Highlight (glass effect)
+      const specGrad = ctx.createRadialGradient(
+        cx - orbRadius * 0.4,
+        cy - orbRadius * 0.4,
         0,
         cx - orbRadius * 0.1,
         cy - orbRadius * 0.1,
         orbRadius * 0.6
       );
-      highlightGrad.addColorStop(0, 'rgba(255, 255, 255, 0.15)');
-      highlightGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
-
+      specGrad.addColorStop(0, `rgba(255, 255, 255, 0.6)`);
+      specGrad.addColorStop(1, `rgba(255, 255, 255, 0)`);
+      
       ctx.beginPath();
-      ctx.arc(cx, cy, orbRadius, 0, Math.PI * 2);
-      ctx.fillStyle = highlightGrad;
+      ctx.arc(cx, cy, orbRadius * 0.95, 0, Math.PI * 2);
+      ctx.fillStyle = specGrad;
       ctx.fill();
-
-      // Subtle border
-      ctx.beginPath();
-      ctx.arc(cx, cy, orbRadius, 0, Math.PI * 2);
-      const borderAlpha = isIdle ? 0.15 + Math.sin(t * 0.8) * 0.05 : 0.2;
-      ctx.strokeStyle = isError
-        ? `rgba(255, 68, 102, ${borderAlpha})`
-        : isProcessing
-          ? `rgba(123, 97, 255, ${borderAlpha})`
-          : isSpeaking
-            ? `rgba(0, 230, 138, ${borderAlpha})`
-            : `rgba(0, 212, 255, ${borderAlpha})`;
-      ctx.lineWidth = 1 / dpr;
-      ctx.stroke();
-
-      // ── Floating particles (idle + ready) ──
-      if (isIdle || isListening) {
-        const particleCount = 6;
-        for (let i = 0; i < particleCount; i++) {
-          const angle = (i / particleCount) * Math.PI * 2 + t * 0.3;
-          const dist = baseRadius * (1.5 + Math.sin(t * 0.5 + i * 1.2) * 0.3);
-          const px = cx + Math.cos(angle) * dist;
-          const py = cy + Math.sin(angle) * dist;
-          const pSize = 1.5 + Math.sin(t + i) * 0.5;
-
-          ctx.beginPath();
-          ctx.arc(px, py, pSize / dpr, 0, Math.PI * 2);
-          ctx.fillStyle = isListening
-            ? `rgba(0, 212, 255, ${0.3 + audioLevel * 0.2})`
-            : `rgba(0, 212, 255, ${0.15 + Math.sin(t + i) * 0.1})`;
-          ctx.fill();
-        }
-      }
+      
     },
-    [isIdle, isListening, isProcessing, isSpeaking, isError, audioLevel]
+    [isIdle, isListening, isWakeDetected, isProcessing, isSpeaking, isError, audioLevel, reducedMotion]
   );
 
   useEffect(() => {

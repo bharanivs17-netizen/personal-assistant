@@ -7,7 +7,6 @@ import { matchIntent, getOfflineResponse, handleUtilityIntent } from '@/utils/in
 
 import Orb from '@/components/Orb';
 import StatusText from '@/components/StatusText';
-import ListeningToggle from '@/components/ListeningToggle';
 import Settings from '@/components/Settings';
 import { useMicrophone } from '@/hooks/useMicrophone';
 import { useAudioAnalyser } from '@/hooks/useAudioAnalyser';
@@ -18,7 +17,7 @@ import { registry, registerWebTools } from '@partner/tools';
 
 type ChatMessage = { role: 'user' | 'partner', text: string };
 
-const DEBUG_VOICE_MODE = true; // Set to false to restore wake-word mode
+const DEBUG_VOICE_MODE = false; // Set to false to restore wake-word mode
 
 export default function Home() {
   const [state, setState] = useState<AssistantState>(AssistantState.STOPPED);
@@ -97,7 +96,30 @@ export default function Home() {
       conversationModeRef.current = true;
       stopRequestedRef.current = false;
       setState(AssistantState.WAKE_DETECTED);
-      speakResponse("Yes?");
+      
+      if (ttsRef.current) {
+        ttsRef.current.stop();
+        isSpeakingRef.current = true;
+        // Speak acknowledgement without adding to chat history or changing state to SPEAKING
+        ttsRef.current.speak("Yes, now I am listening.", {
+          speed: settings.speechSpeed,
+          lang: settings.responseLanguage,
+          onStart: () => {}, // Maintain WAKE_DETECTED state
+          onEnd: () => {
+            isSpeakingRef.current = false;
+            setState(AssistantState.CONTINUOUS_LISTENING);
+            scheduleSafeRestart();
+          },
+          onError: () => {
+            isSpeakingRef.current = false;
+            setState(AssistantState.CONTINUOUS_LISTENING);
+            scheduleSafeRestart();
+          }
+        });
+      } else {
+        setState(AssistantState.CONTINUOUS_LISTENING);
+        scheduleSafeRestart();
+      }
     },
     onCommandRecognized: (text: string) => {
       processCommand(text);
@@ -358,6 +380,22 @@ export default function Home() {
           // Find last partner message
           const lastPartnerMsg = [...chatHistory].reverse().find(m => m.role === 'partner');
           responseText = lastPartnerMsg ? lastPartnerMsg.text : "I haven't said anything yet.";
+       } else if (match.intent === 'TELL_STORY') {
+           const reqLang = match.responseParams?.lang || 'auto';
+           const actualLang = reqLang === 'auto' ? settings.responseLanguage : reqLang;
+           const targetLangName = (actualLang === 'tamil' || actualLang === 'ta' || actualLang === 'auto') ? 'Tamil' : 'English';
+           
+           const storyPrompt = `The user wants to hear a short story. 
+1. Language: STRICTLY ${targetLangName}. Do NOT translate to English if Tamil is requested.
+2. Acknowledgment: Start by acknowledging the request naturally (e.g., if Tamil, say "சரி! ஒரு குட்டிக் கதை சொல்கிறேன்." or if English, say "Sure! I'll tell you a short story.").
+3. Story: Tell a short, simple, engaging, and original story.
+4. Length: Keep it strictly around 5 to 10 simple sentences, suitable for quick spoken audio.
+5. Ending: End with a small positive message or moral (e.g., "இந்தக் கதையின் நீதி: ...").
+6. Formatting: Do NOT use any markdown, asterisks, or special formatting. Use only plain text that is natural for a Text-to-Speech engine.`;
+           
+           console.log("[PARTNER] Story intent detected. Requesting from Gemini.");
+           generateResponse(storyPrompt);
+           return;
        } else {
           responseText = getOfflineResponse(match.intent, settings.responseLanguage, text) || "I understand the intent but don't have a response for it.";
        }
@@ -424,6 +462,13 @@ export default function Home() {
       if (newStream) {
         setIsListening(true);
         console.log("[PARTNER][ANDROID] Listening toggle: ON");
+        
+        // FIX: Android Chrome prevents SpeechRecognition from capturing audio if getUserMedia is active.
+        // We stop the stream here so SpeechRecognition can use the microphone.
+        if (/Android/i.test(navigator.userAgent)) {
+          stopMicrophone();
+        }
+
         if (DEBUG_VOICE_MODE) {
            console.log("[PARTNER][ANDROID] DEBUG_VOICE_MODE enabled, bypassing wake word");
            conversationModeRef.current = true;
@@ -476,51 +521,24 @@ export default function Home() {
   };
 
   return (
-    <>
-      <div style={{ position: 'fixed', top: '1.5rem', right: '1.5rem', display: 'flex', alignItems: 'center', gap: '1rem', zIndex: 100 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8rem', color: 'var(--color-text-dim)', fontWeight: 600, background: 'rgba(0,0,0,0.4)', padding: '4px 12px', borderRadius: '12px' }}>
-           <span style={{ 
-              display: 'inline-block', width: '8px', height: '8px', borderRadius: '50%', 
-              backgroundColor: isOnline ? '#00e68a' : '#ff6b6b',
-              boxShadow: isOnline ? '0 0 8px #00e68a' : '0 0 8px #ff6b6b'
-           }} />
-           {isOnline ? 'Online' : 'Offline'}
+    <div className="app-layout">
+      {/* ── Header ── */}
+      <header className="app-header fade-in">
+        <div className="brand-logo">
+          PARTNER
+          <div className={`status-dot ${isOnline ? 'online' : 'offline'}`} title={isOnline ? 'Online' : 'Offline'} />
         </div>
         <button
-          id="settings-button"
           className="settings-btn"
-          style={{ position: 'static' }}
           onClick={() => setSettingsOpen(true)}
           aria-label="Open settings"
         >
-          ⚙
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+          </svg>
         </button>
-      </div>
-
-      {/* TTS Debug Panel */}
-      {settings.showTTSDebug && (
-        <div style={{ position: 'fixed', top: '1.5rem', left: '1.5rem', background: 'rgba(0,0,0,0.8)', padding: '1rem', borderRadius: '12px', border: '1px solid #444', color: '#00d4ff', fontSize: '0.85rem', zIndex: 100, display: 'flex', flexDirection: 'column', gap: '0.5rem', maxWidth: '300px' }}>
-          <h3 style={{ margin: 0, color: '#fff' }}>TTS Debug</h3>
-          <div><strong>Language:</strong> {ttsDebug?.language || '-'}</div>
-          <div><strong>Voice:</strong> {ttsDebug?.voiceName || '-'}</div>
-          <div><strong>Status:</strong> {ttsDebug?.status || '-'}</div>
-          <div style={{ color: ttsDebug?.status === 'ERROR' ? '#ff6b6b' : 'inherit', wordBreak: 'break-word' }}><strong>Error:</strong> {ttsDebug?.error || '-'}</div>
-          <div><strong>Tamil Voices:</strong> {ttsDebug ? (ttsDebug.hasTamilVoice ? 'YES' : 'NO') : '-'}</div>
-          
-          <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
-            <button onClick={() => {
-              if (ttsRef.current) ttsRef.current.speak("வணக்கம்! நான் Partner. உங்களுக்கு எப்படி உதவலாம்?", { onDebug: setTtsDebug });
-            }} style={{ padding: '6px 8px', background: '#333', color: '#fff', border: '1px solid #555', borderRadius: '4px', cursor: 'pointer', flex: 1 }}>
-              🔊 Test Tamil
-            </button>
-            <button onClick={() => {
-              if (ttsRef.current) ttsRef.current.speak("Hello! I am Partner. How can I help you?", { onDebug: setTtsDebug });
-            }} style={{ padding: '6px 8px', background: '#333', color: '#fff', border: '1px solid #555', borderRadius: '4px', cursor: 'pointer', flex: 1 }}>
-              🔊 Test English
-            </button>
-          </div>
-        </div>
-      )}
+      </header>
 
       <Settings
         isOpen={settingsOpen}
@@ -529,93 +547,98 @@ export default function Home() {
         onSettingsChange={setSettings}
         permissionStatus={permissionStatus}
         isListening={isListening}
+        ttsDebug={ttsDebug}
+        onTestTTS={(lang) => {
+          if (ttsRef.current) {
+            const msg = lang === 'ta' 
+              ? "வணக்கம்! நான் Partner. உங்களுக்கு எப்படி உதவலாம்?" 
+              : "Hello! I am Partner. How can I help you?";
+            ttsRef.current.speak(msg, { onDebug: setTtsDebug });
+          }
+        }}
       />
 
-      <main className="app-container" style={{ display: 'flex', flexDirection: 'column', height: '100vh', padding: '2rem 1rem' }}>
-        
-        {/* Chat History Area (Flexible space) */}
-        <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '1rem', paddingBottom: '2rem', marginTop: '3rem' }}>
-          {chatHistory.length === 0 && state === AssistantState.READY && (
-             <div style={{ margin: 'auto', textAlign: 'center', opacity: 0.5, color: '#fff', fontSize: '0.9rem' }}>
-               {isSttSupported ? 'Say "Hey Partner" or click the orb to start' : 'Type a message to start'}
-             </div>
-          )}
+      <main className="main-content">
+        <div className="orb-container fade-in">
+          <Orb state={state} audioLevel={audioLevel} onClick={handleOrbClick} />
+          <div className="fade-in-delay-1">
+            <StatusText state={state} />
+          </div>
+        </div>
+      </main>
+
+      <section className="bottom-area">
+        <div className="conversation-area">
           {chatHistory.map((msg, idx) => (
-            <div key={idx} style={{
-              alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start',
-              background: msg.role === 'user' ? 'rgba(255,255,255,0.1)' : 'rgba(0, 212, 255, 0.1)',
-              border: msg.role === 'partner' ? '1px solid rgba(0, 212, 255, 0.3)' : '1px solid rgba(255,255,255,0.05)',
-              padding: '10px 16px',
-              borderRadius: '16px',
-              borderBottomRightRadius: msg.role === 'user' ? '4px' : '16px',
-              borderBottomLeftRadius: msg.role === 'partner' ? '4px' : '16px',
-              maxWidth: '80%',
-              color: '#fff',
-              fontSize: '0.95rem',
-              lineHeight: '1.4'
-            }}>
+            <div key={idx} className={`chat-bubble ${msg.role}`}>
               {msg.text}
             </div>
           ))}
-          {/* Ongoing Transcript / Typing indicator */}
           {(finalTranscript || interimTranscript || state === AssistantState.PROCESSING) && (
-            <div style={{ alignSelf: 'flex-end', opacity: 0.7, padding: '10px 16px', fontSize: '0.9rem' }}>
+            <div className="chat-bubble user">
                {DEBUG_VOICE_MODE && (finalTranscript || interimTranscript) && (
-                 <div style={{ color: '#00e68a', marginBottom: '4px', fontWeight: 'bold' }}>
-                   Heard:
+                 <div style={{ color: 'var(--color-accent)', marginBottom: '4px', fontWeight: 600, fontSize: '0.8rem' }}>
+                   DEBUG HEARD:
                  </div>
                )}
-               <span className="user-text">
-                  {finalTranscript} <span>{interimTranscript}</span>
-               </span>
-               {state === AssistantState.PROCESSING && <span style={{ fontStyle: 'italic', marginLeft: '10px' }}>Processing...</span>}
+               {finalTranscript} <span style={{ opacity: 0.7 }}>{interimTranscript}</span>
+               {state === AssistantState.PROCESSING && <div className="chat-typing">Thinking...</div>}
             </div>
           )}
           {state === AssistantState.CONFIRMING && (
-            <div style={{ alignSelf: 'center', background: 'rgba(255,170,0,0.1)', border: '1px solid #ffaa00', padding: '12px 20px', borderRadius: '8px', color: '#ffaa00', display: 'flex', gap: '1rem', alignItems: 'center' }}>
-               <span>Are you sure you want to do this?</span>
-               <button onClick={() => processCommand('yes')} style={{ padding: '6px 12px', background: '#ffaa00', color: '#000', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>Yes</button>
-               <button onClick={() => processCommand('no')} style={{ padding: '6px 12px', background: 'transparent', color: '#ffaa00', border: '1px solid #ffaa00', borderRadius: '4px', cursor: 'pointer' }}>Cancel</button>
+            <div className="chat-bubble partner" style={{ border: '1px solid var(--color-warning)' }}>
+               <div>Are you sure you want to do this?</div>
+               <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+                 <button className="btn-primary" onClick={() => processCommand('yes')}>Yes</button>
+                 <button className="btn-secondary" onClick={() => processCommand('no')}>Cancel</button>
+               </div>
             </div>
           )}
           <div ref={chatEndRef} />
         </div>
 
-        {/* Fixed Bottom Section (Orb & Controls) */}
-        <section style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem', flexShrink: 0 }}>
+        <form className="command-bar fade-in-delay-2" onSubmit={handleChatSubmit}>
+          <button
+            type="button"
+            className={`mic-button ${isListening ? 'active' : ''}`}
+            onClick={toggleListening}
+            aria-label={isListening ? 'Stop listening' : 'Start listening'}
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              {isListening ? (
+                <rect x="6" y="6" width="12" height="12" rx="2" />
+              ) : (
+                <>
+                  <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
+                  <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                  <line x1="12" y1="19" x2="12" y2="22" />
+                </>
+              )}
+            </svg>
+          </button>
           
-          <div className="fade-in">
-            <Orb state={state} audioLevel={audioLevel} onClick={handleOrbClick} />
-          </div>
+          <input 
+            type="text"
+            className="command-input"
+            value={chatInput}
+            onChange={(e) => setChatInput(e.target.value)}
+            placeholder="Ask Partner anything..."
+            autoComplete="off"
+          />
 
-          <div className="fade-in-delay-2">
-            <StatusText state={state} />
-          </div>
-
-          {voiceError && <p className="hint-text fade-in-delay-3" style={{ color: '#ff6b6b' }}>{voiceError}</p>}
-
-          {settings.showMicToggle && (
-            <div className="fade-in-delay-3">
-              <ListeningToggle isOn={isListening} onToggle={toggleListening} />
-            </div>
-          )}
-
-          {/* Text Input */}
-          <form onSubmit={handleChatSubmit} style={{ display: 'flex', width: '100%', maxWidth: '600px', gap: '0.5rem', background: 'rgba(0,0,0,0.4)', padding: '8px', borderRadius: '24px', border: '1px solid rgba(255,255,255,0.1)' }}>
-             <input 
-               type="text" 
-               value={chatInput}
-               onChange={(e) => setChatInput(e.target.value)}
-               placeholder="Type a message or command..." 
-               style={{ flex: 1, background: 'transparent', border: 'none', color: '#fff', padding: '0 12px', fontSize: '1rem', outline: 'none' }}
-             />
-             <button type="submit" disabled={!chatInput.trim()} style={{ background: chatInput.trim() ? '#00d4ff' : 'rgba(255,255,255,0.1)', color: chatInput.trim() ? '#000' : '#888', border: 'none', borderRadius: '50%', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: chatInput.trim() ? 'pointer' : 'default', transition: 'all 0.2s' }}>
-                ➤
-             </button>
-          </form>
-          
-        </section>
-      </main>
-    </>
+          <button
+            type="submit"
+            className="send-button"
+            disabled={!chatInput.trim()}
+            aria-label="Send message"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="22" y1="2" x2="11" y2="13"></line>
+              <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+            </svg>
+          </button>
+        </form>
+      </section>
+    </div>
   );
 }

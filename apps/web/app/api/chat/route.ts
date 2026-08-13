@@ -15,8 +15,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, code: 'GEMINI_BAD_REQUEST', message: 'Message is required.' }, { status: 400 });
     }
 
-    const apiKey = process.env.GOOGLE_API_KEY;
-    console.log(`[PARTNER][GEMINI] API key configured: ${!!apiKey}`);
+    let apiKey = process.env.GOOGLE_API_KEY || '';
+    apiKey = apiKey.replace(/^["']|["']$/g, ''); // Strip literal quotes if user added them
+    console.log(`[PARTNER][GEMINI] API key stringified: >${apiKey}<`);
     
     if (!apiKey || apiKey === 'YOUR_NEW_API_KEY_HERE') {
       return NextResponse.json({ success: false, code: 'GEMINI_NOT_CONFIGURED', message: 'Gemini API key is not configured.' }, { status: 500 });
@@ -31,39 +32,53 @@ export async function POST(req: Request) {
     let result = '';
     let retries = 0;
     const maxRetries = 2;
+    
+    // Check Environment
+    const isVercel = process.env.VERCEL === '1';
+    console.log(`[PARTNER][GEMINI] Environment: ${isVercel ? 'Vercel' : 'Local'}`);
 
     while (retries <= maxRetries) {
       try {
-        console.log('[PARTNER][GEMINI] Sending request');
+        console.log(`[PARTNER][GEMINI] Sending request to model: ${modelName}`);
         result = await provider.generateResponse(history || [], message);
-        console.log('[PARTNER][GEMINI] Response received');
+        console.log('[PARTNER][GEMINI] Response received successfully');
         break; // Success, exit loop
       } catch (err: any) {
         const errMessage = (err.message || '').toLowerCase();
-        const status = err.status || 500;
+        const status = err.status || err.response?.status || 500;
+        
+        console.error('\n--- [PARTNER][GEMINI] API ERROR ---');
+        console.error(`Status: ${status}`);
+        console.error(`Message: ${err.message || 'Unknown error'}`);
+        console.error(`Model: ${modelName}`);
+        if (err.response?.data) {
+           console.error(`Response Body: ${JSON.stringify(err.response.data)}`);
+        }
+        console.error('-----------------------------------\n');
         
         // Quota
         if (status === 429 || errMessage.includes('resource_exhausted') || errMessage.includes('quota')) {
-          console.error('[PARTNER][GEMINI] ERROR: QUOTA_EXCEEDED');
           return NextResponse.json({ success: false, code: 'GEMINI_QUOTA_ERROR', message: 'Gemini API quota has been reached. Your local voice commands are still available.', model: modelName }, { status: 429 });
         }
         
         // Model Not Found
         if (status === 404 || errMessage.includes('model_not_found') || errMessage.includes('not found')) {
-          console.error('[PARTNER][GEMINI] ERROR: MODEL_NOT_FOUND');
-          return NextResponse.json({ success: false, code: 'GEMINI_MODEL_ERROR', message: 'The configured Gemini model is unavailable.', model: modelName }, { status: 404 });
+          return NextResponse.json({ success: false, code: 'GEMINI_MODEL_ERROR', message: `The configured Gemini model (${modelName}) is unavailable.`, model: modelName }, { status: 404 });
         }
 
         // Auth
         if (status === 401 || errMessage.includes('api key') || errMessage.includes('unauthenticated')) {
-          console.error('[PARTNER][GEMINI] ERROR: AUTH_ERROR');
           return NextResponse.json({ success: false, code: 'GEMINI_AUTH_ERROR', message: 'Gemini API authentication failed.', model: modelName }, { status: 401 });
         }
         
         // Permission
         if (status === 403 || errMessage.includes('permission denied')) {
-          console.error('[PARTNER][GEMINI] ERROR: PERMISSION_ERROR');
           return NextResponse.json({ success: false, code: 'GEMINI_PERMISSION_ERROR', message: 'Gemini API permission denied.', model: modelName }, { status: 403 });
+        }
+        
+        // Bad Request
+        if (status === 400 || errMessage.includes('bad request') || errMessage.includes('invalid')) {
+          return NextResponse.json({ success: false, code: 'GEMINI_BAD_REQUEST', message: 'Invalid request sent to Gemini API.', model: modelName }, { status: 400 });
         }
 
         // Check if transient error (500, 503)
@@ -71,14 +86,13 @@ export async function POST(req: Request) {
         
         if (isTransient && retries < maxRetries) {
           retries++;
-          console.warn(`[PARTNER][GEMINI] Transient Gemini error, retrying (${retries}/${maxRetries})...`);
+          console.warn(`[PARTNER][GEMINI] Transient Gemini error (Status ${status}), retrying (${retries}/${maxRetries})...`);
           await new Promise(resolve => setTimeout(resolve, 1000 * retries)); // backoff
           continue;
         }
         
         // Not transient or out of retries
-        console.error('[PARTNER][GEMINI] ERROR: UNKNOWN_ERROR', err);
-        return NextResponse.json({ success: false, code: 'GEMINI_UNKNOWN_ERROR', message: 'An unknown error occurred while contacting Gemini.', model: modelName }, { status: status });
+        return NextResponse.json({ success: false, code: 'GEMINI_SERVER_ERROR', message: 'An internal server error occurred while contacting Gemini.', model: modelName }, { status: status });
       }
     }
 

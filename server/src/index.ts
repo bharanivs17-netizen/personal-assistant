@@ -31,7 +31,8 @@ app.get('/health', (req, res) => {
 });
 
 async function validateGeminiModel() {
-  const apiKey = process.env.GOOGLE_API_KEY;
+  let apiKey = process.env.GOOGLE_API_KEY || '';
+  apiKey = apiKey.replace(/^["']|["']$/g, '');
   const configuredModel = process.env.GOOGLE_MODEL;
 
   if (apiKey && configuredModel) {

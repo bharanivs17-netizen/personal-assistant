@@ -15,7 +15,8 @@ router.post('/', async (req: Request, res: Response) => {
       return;
     }
 
-    const apiKey = process.env.GOOGLE_API_KEY;
+    let apiKey = process.env.GOOGLE_API_KEY || '';
+    apiKey = apiKey.replace(/^["']|["']$/g, '');
     if (!apiKey) {
       res.status(500).json({ error: 'Server configuration error: Missing API Key' });
       return;

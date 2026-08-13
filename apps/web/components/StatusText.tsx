@@ -10,28 +10,25 @@ interface StatusTextProps {
 function getStatusConfig(state: AssistantState): { text: string; className: string } {
   switch (state) {
     case AssistantState.OFF:
-      return { text: 'Offline', className: '' };
+    case AssistantState.STOPPED:
     case AssistantState.READY:
-      return { text: 'Say Hey Partner', className: '' };
+      return { text: 'Listening for "Hey Partner"', className: '' };
     case AssistantState.WAKE_DETECTED:
-      return { text: 'Yes?', className: 'active' };
+      return { text: 'Yes, now I am listening.', className: 'active' };
     case AssistantState.LISTENING:
     case AssistantState.CONTINUOUS_LISTENING:
       return { text: 'Listening...', className: 'active' };
     case AssistantState.CONFIRMING:
-      return { text: 'Waiting for confirmation...', className: 'active' };
     case AssistantState.PROCESSING:
-      return { text: 'Processing...', className: 'active' };
+      return { text: 'Thinking...', className: 'active' };
     case AssistantState.SPEAKING:
       return { text: 'Speaking...', className: 'active' };
     case AssistantState.ERROR:
-      return { text: 'Something went wrong', className: 'error' };
+      return { text: 'Something went wrong. Try again.', className: 'error' };
     case AssistantState.PERMISSION_REQUIRED:
       return { text: 'Microphone permission required', className: 'error' };
     case AssistantState.NO_NETWORK:
-      return { text: "I'm offline right now", className: 'error' };
-    case AssistantState.STOPPED:
-      return { text: 'Listening paused', className: '' };
+      return { text: 'Voice recognition unavailable', className: 'error' };
     default:
       return { text: '', className: '' };
   }

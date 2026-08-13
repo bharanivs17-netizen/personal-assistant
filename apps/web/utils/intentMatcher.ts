@@ -132,6 +132,25 @@ export function matchIntent(transcript: string): MatchResult {
     }
   }
 
+  const storyRegexes = [
+    /tell me a (?:small |short |kutti )?story(?: in )?(tamil|english)?/i,
+    /tell a (?:small |short |kutti )?story(?: in )?(tamil|english)?/i,
+    /(?:tamilil |tamil la )?(?:oru )?(?:kutti |siriya )?kadhai sollu/i,
+    /oru (?:kutti |siriya )?kadhai sollu/i,
+    /(?:தமிழில் )?ஒரு (?:குட்டி|சிறிய|குட்டிக்)? ?கதை சொல்லு/i,
+    /கதை சொல்லு/i
+  ];
+  for (const regex of storyRegexes) {
+    const m = transcript.match(regex) || normalized.match(regex);
+    if (m) {
+      let lang = 'auto';
+      if (m[1]) lang = m[1].toLowerCase();
+      if (transcript.match(/tamil|தமிழ்|கதை|kadhai/i) || normalized.match(/tamil|kadhai/i)) lang = 'tamil';
+      if (transcript.match(/english/i) || normalized.match(/english/i)) lang = 'english';
+      return { intent: 'TELL_STORY', responseParams: { lang } };
+    }
+  }
+
 
   // 1. Exact Match - Tools
   for (const tool of SYSTEM_TOOLS) {

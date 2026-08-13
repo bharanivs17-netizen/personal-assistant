@@ -103,29 +103,31 @@ export function useChat({ onChunk, onComplete, onError }: UseChatProps = {}) {
       }
       
     } catch (err: any) {
-      console.error('[Partner] Chat request failed:', err);
+      const friendlyError = err instanceof Error ? err : new Error(String(err));
+      // Log as a string to prevent Next.js dev overlay from capturing the Error object
+      console.warn('[Partner] Chat request failed:', friendlyError.message);
       setIsGenerating(false);
       
-      let friendlyError = err instanceof Error ? err : new Error(String(err));
+      let finalError = friendlyError;
       
       // Handle network 'Failed to fetch' errors specifically
       if (err instanceof TypeError && err.message === 'Failed to fetch') {
-        friendlyError = new Error('Unable to connect to the Partner backend.');
+        finalError = new Error('Unable to connect to the Partner backend.');
       } else if (err.name === 'AbortError') {
-        friendlyError = new Error("Partner AI service timed out.");
+        finalError = new Error("Partner AI service timed out.");
       }
       
       // Update the AI message to show the error
       setMessages(prev => 
         prev.map(msg => 
           msg.id === aiMsgId 
-            ? { ...msg, content: friendlyError.message } 
+            ? { ...msg, content: finalError.message } 
             : msg
         )
       );
       
       if (onError) {
-        onError(friendlyError);
+        onError(finalError);
       }
     }
   }, [messages, onChunk, onComplete, onError]);
