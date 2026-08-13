@@ -239,5 +239,45 @@ export const SYSTEM_TOOLS: ToolIntent[] = [
       tanglish: ['reminder vai', 'reminder set pannu', 'nyabaga paduthu', 'remind pannu'],
       mixed: ['set reminder partner']
     }
+  },
+  {
+    intent: 'INSTAGRAM_OPEN',
+    toolName: 'open_instagram',
+    phrases: {
+      en: ['open instagram', 'launch instagram'],
+      ta: ['இன்ஸ்டாகிராம் திற'],
+      tanglish: ['instagram open pannu'],
+      mixed: ['open instagram partner']
+    }
+  },
+  {
+    intent: 'INSTAGRAM_REELS_MODE',
+    toolName: 'open_instagram_reels',
+    phrases: {
+      en: ['open instagram reels', 'start reels mode', 'open reels'],
+      ta: ['ரீல்ஸ் திற'],
+      tanglish: ['reels open pannu', 'reels mode start pannu'],
+      mixed: ['open reels partner']
+    }
+  },
+  {
+    intent: 'INSTAGRAM_NEXT_REEL',
+    toolName: 'next_reel',
+    phrases: {
+      en: ['next reel', 'show next', 'show me the next reel'],
+      ta: ['அடுத்த ரீல்', 'அடுத்தது'],
+      tanglish: ['next reel', 'adutha reel', 'next'],
+      mixed: ['next reel partner']
+    }
+  },
+  {
+    intent: 'INSTAGRAM_STOP',
+    toolName: 'stop_reels',
+    phrases: {
+      en: ['stop instagram mode', 'exit reels mode', 'stop reels'],
+      ta: ['ரீல்ஸ் நிறுத்து'],
+      tanglish: ['reels stop pannu', 'reels mode exit pannu'],
+      mixed: ['stop reels partner']
+    }
   }
 ];

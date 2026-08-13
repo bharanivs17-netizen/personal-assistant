@@ -30,6 +30,17 @@ export default function Home() {
   const [isLocalResponse, setIsLocalResponse] = useState(false);
   const [chatInput, setChatInput] = useState('');
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
+  
+  // Instagram State
+  type InstagramState = 'INSTAGRAM_IDLE' | 'INSTAGRAM_OPENING' | 'REELS_MODE_ACTIVE' | 'REELS_NAVIGATING' | 'REELS_ERROR' | 'INSTAGRAM_EXITED';
+  const [instagramState, setInstagramState] = useState<InstagramState>('INSTAGRAM_IDLE');
+  const instagramStateRef = useRef<InstagramState>('INSTAGRAM_IDLE');
+  const updateInstagramState = useCallback((newState: InstagramState) => {
+    console.log(`[PARTNER][INSTAGRAM] State: ${instagramStateRef.current} -> ${newState}`);
+    instagramStateRef.current = newState;
+    setInstagramState(newState);
+  }, []);
+
   const [ttsDebug, setTtsDebug] = useState<TTSDebugInfo | null>(null);
   const processingRef = useRef(false);
   const lastProcessedTranscriptRef = useRef<string | null>(null);
@@ -343,8 +354,17 @@ export default function Home() {
     const timeSensitive = isTimeSensitive(text);
 
     // 1. Check Offline & Tool Intents
-    const match = matchIntent(text);
+    let match = matchIntent(text);
     console.log(`[PARTNER][PERF] Routing completed: ${Date.now() - perfStartTime} ms`);
+
+    // Context-aware "next" handling
+    if (match?.intent === 'INSTAGRAM_NEXT_REEL' && instagramStateRef.current !== 'REELS_MODE_ACTIVE') {
+      const normalized = text.toLowerCase().trim();
+      if (normalized === 'next' || normalized === 'next reel' || normalized === 'show next') {
+         console.log(`[PARTNER][INSTAGRAM] Ignoring "next" command because Reels Mode is not active.`);
+         match = null;
+      }
+    }
     
     if (match) {
        console.log("[PARTNER][ANDROID] Intent:", match.intent);
@@ -354,6 +374,50 @@ export default function Home() {
        }
        setIsLocalResponse(true);
        
+       if (match.intent === 'INSTAGRAM_OPEN') {
+           console.log(`[PARTNER][INSTAGRAM] Intent: INSTAGRAM_OPEN`);
+           console.log(`[PARTNER][INSTAGRAM] Action: open_url`);
+           updateInstagramState('INSTAGRAM_OPENING');
+           window.open('https://instagram.com/', '_blank');
+           console.log(`[PARTNER][INSTAGRAM] Success: true`);
+           updateInstagramState('INSTAGRAM_IDLE');
+           const lang = settings.responseLanguage;
+           speakResponse(lang === 'tamil' ? 'இன்ஸ்டாகிராம் திறக்கப்படுகிறது.' : 'Opening Instagram.');
+           return;
+       }
+       else if (match.intent === 'INSTAGRAM_REELS_MODE') {
+           console.log(`[PARTNER][INSTAGRAM] Intent: INSTAGRAM_REELS_MODE`);
+           console.log(`[PARTNER][INSTAGRAM] Action: open_reels`);
+           updateInstagramState('REELS_MODE_ACTIVE');
+           window.open('https://instagram.com/reels/', '_blank');
+           console.log(`[PARTNER][INSTAGRAM] Success: true`);
+           const lang = settings.responseLanguage;
+           speakResponse(lang === 'tamil' ? 'ரீல்ஸ் மோடு தொடங்கப்பட்டது.' : 'Reels mode started.');
+           return;
+       }
+       else if (match.intent === 'INSTAGRAM_NEXT_REEL') {
+           console.log(`[PARTNER][INSTAGRAM] Intent: INSTAGRAM_NEXT_REEL`);
+           console.log(`[PARTNER][INSTAGRAM] Action: next_reel`);
+           console.log(`[PARTNER][INSTAGRAM] Success: false`);
+           console.log(`[PARTNER][INSTAGRAM] Reason: browser_control_unavailable`);
+           updateInstagramState('REELS_ERROR');
+           // Immediately reset to active so they can try again or exit
+           setTimeout(() => updateInstagramState('REELS_MODE_ACTIVE'), 100);
+           const lang = settings.responseLanguage;
+           speakResponse(lang === 'tamil' ? 'இந்த பிரவுசரில் அடுத்த ரீலை மாற்ற முடியாது.' : "I can't control the next Reel from this browser.");
+           return;
+       }
+       else if (match.intent === 'INSTAGRAM_STOP') {
+           console.log(`[PARTNER][INSTAGRAM] Intent: INSTAGRAM_STOP`);
+           console.log(`[PARTNER][INSTAGRAM] Action: stop_reels`);
+           updateInstagramState('INSTAGRAM_EXITED');
+           console.log(`[PARTNER][INSTAGRAM] Success: true`);
+           updateInstagramState('INSTAGRAM_IDLE');
+           const lang = settings.responseLanguage;
+           speakResponse(lang === 'tamil' ? 'ரீல்ஸ் மோடு நிறுத்தப்பட்டது.' : 'Reels mode ended.');
+           return;
+       }
+
        if (match.isTool) {
            if (match.intent === 'PARTNER_MICROPHONE_OFF') {
                toggleListening();
@@ -656,7 +720,24 @@ export default function Home() {
       />
 
       <main className="main-content">
-        <div className="orb-container fade-in">
+        <div className="orb-container fade-in" style={{ position: 'relative' }}>
+          {instagramState === 'REELS_MODE_ACTIVE' && (
+            <div style={{ 
+              position: 'absolute', 
+              top: '-50px', 
+              background: 'linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%)', 
+              color: 'white', 
+              padding: '6px 16px', 
+              borderRadius: '20px', 
+              fontSize: '0.85rem', 
+              fontWeight: 600, 
+              boxShadow: '0 4px 12px rgba(220, 39, 67, 0.4)',
+              whiteSpace: 'nowrap',
+              zIndex: 10
+            }}>
+               Instagram Reels Mode
+            </div>
+          )}
           <Orb state={state} audioLevel={audioLevel} onClick={handleOrbClick} />
           <div className="fade-in-delay-1">
             <StatusText state={state} />
