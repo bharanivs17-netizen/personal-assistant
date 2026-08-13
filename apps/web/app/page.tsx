@@ -212,9 +212,16 @@ export default function Home() {
     },
     onError: (err) => {
       processingRef.current = false;
-      setVoiceError(err.message || "Sorry, I couldn't connect to Partner's AI service.");
+      const errorText = err.message || "Sorry, I couldn't connect to Partner's AI service.";
+      setVoiceError(errorText);
       const actualLang = settings.responseLanguage === 'auto' ? 'english' : settings.responseLanguage;
-      const fallbackMsg = actualLang === 'tamil' ? "மன்னிக்கவும், பிழை ஏற்பட்டுள்ளது." : "Gemini is unavailable right now. Please try again.";
+      let fallbackMsg = actualLang === 'tamil' ? "மன்னிக்கவும், பிழை ஏற்பட்டுள்ளது." : "Gemini is unavailable right now. Please try again.";
+      
+      // If we have a specific, user-friendly error from our API, speak it instead of the generic one.
+      if (err.message && err.message.length > 5 && err.message.length < 100) {
+         fallbackMsg = err.message;
+      }
+      
       speakResponse(fallbackMsg);
     },
     onToolCall: async (toolName, args) => {
